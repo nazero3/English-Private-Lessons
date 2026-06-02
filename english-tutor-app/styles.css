@@ -1,0 +1,155 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  color: #1f2937;
+}
+
+.app-header {
+  background: #1d4ed8;
+  color: #fff;
+  padding: 16px 20px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.app-header p {
+  margin: 6px 0 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+.sidebar,
+.card {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+}
+
+.sidebar {
+  padding: 14px;
+}
+
+.sidebar h2 {
+  margin: 14px 0 8px;
+  font-size: 18px;
+}
+
+.sidebar select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 6px;
+  border: 1px solid #9ca3af;
+  border-radius: 8px;
+}
+
+.unit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.unit-btn {
+  text-align: left;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.unit-btn.active {
+  background: #1d4ed8;
+  color: #fff;
+  border-color: #1d4ed8;
+}
+
+.content {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  padding: 14px;
+}
+
+.card h2,
+.card h3 {
+  margin-top: 0;
+}
+
+.visual-area {
+  border: 1px dashed #9ca3af;
+  border-radius: 8px;
+  background: #f9fafb;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.visual-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.visual-box {
+  background: #e0e7ff;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #c7d2fe;
+}
+
+.exercise-item,
+.quiz-item {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.exercise-item input[type="text"] {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+}
+
+.quiz-option {
+  display: block;
+  margin: 4px 0;
+}
+
+.btn {
+  background: #1d4ed8;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.feedback {
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
