@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import { AppLayout, RequireAuth, RequireCoursebookAccess, RequirePrivateLessons } from './components/AppLayout'
+import PwaChrome from './components/PwaChrome'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import CheckModePage from './pages/CheckModePage'
 import LessonPackPage from './pages/LessonPackPage'
@@ -20,6 +21,7 @@ import {
 } from './pages/CoursebookSheetPages'
 import PrintPage from './pages/PrintPage'
 import SessionsPage from './pages/SessionsPage'
+import HoursPage from './pages/HoursPage'
 import {
   BriefPage,
   HomeworkPage,
@@ -61,6 +63,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <PwaChrome />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
 
@@ -86,9 +89,15 @@ export default function App() {
                 <Route path="/manager" element={<ManagerHome />} />
                 <Route path="/manager/courses/:courseId" element={<ManagerCoursePage />} />
                 <Route path="/manager/sessions" element={<SessionsPage />} />
+                <Route path="/manager/hours" element={<HoursPage />} />
                 <Route path="/manager/students" element={<StudentsPage />} />
                 <Route path="/manager/students/:studentId" element={<StudentProfilePage />} />
                 <Route path="/manager/parents" element={<ParentsPage />} />
+              </Route>
+
+              <Route element={<RequireAuth role="operations" />}>
+                <Route path="/operations" element={<HoursPage />} />
+                <Route path="/operations/sessions" element={<SessionsPage />} />
               </Route>
 
               <Route element={<RequireAuth role="student" />}>

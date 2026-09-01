@@ -1,11 +1,13 @@
-from datetime import UTC, datetime
+from calendar import monthrange
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..deps import get_current_profile, require_manager, teacher_has_course
+from ..deps import can_see_all_sessions, get_current_profile, require_manager, require_ops_or_manager, teacher_has_course
 from ..family import on_session_saved
 from ..models import AppRole, Course, Lesson, LessonSession, Notification, Profile, Student
 from ..schemas import SessionCreate, SessionFeedback, SessionUpdate
@@ -38,6 +40,7 @@ def _session_dict(session: LessonSession, db: Session) -> dict:
         "homework_total": float(session.homework_total) if session.homework_total is not None else None,
         "notes": session.notes,
         "homework_assigned": session.homework_assigned or "",
+        "hours": float(session.hours) if session.hours is not None else None,
         "session_date": session.session_date.isoformat() if session.session_date else None,
         "created_at": session.created_at.isoformat() if session.created_at else None,
         "manager_feedback": session.manager_feedback,
@@ -103,15 +106,79 @@ def _resolve_student(db: Session, profile: Profile, student_id: UUID | None, stu
 def list_sessions(profile: Profile = Depends(get_current_profile), db: Session = Depends(get_db)):
     if profile.role in (AppRole.student, AppRole.parent):
         raise HTTPException(status_code=403, detail="Use the student portal")
+    if profile.role not in (AppRole.manager, AppRole.teacher, AppRole.operations):
+        raise HTTPException(status_code=403, detail="Not allowed")
     q = db.query(LessonSession).order_by(LessonSession.session_date.desc())
-    if profile.role != AppRole.manager:
+    if not can_see_all_sessions(profile):
         q = q.filter(LessonSession.teacher_id == profile.id)
     return [_session_dict(s, db) for s in q.all()]
 
 
+@router.get("/hours/summary")
+def hours_summary(
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
+    _: Profile = Depends(require_ops_or_manager),
+    db: Session = Depends(get_db),
+):
+    today = datetime.now(UTC).date()
+    start = from_date or today.replace(day=1)
+    if to_date:
+        end = to_date
+    else:
+        end = date(start.year, start.month, monthrange(start.year, start.month)[1])
+
+    start_dt = datetime(start.year, start.month, start.day, tzinfo=UTC)
+    end_exclusive = datetime(end.year, end.month, end.day, tzinfo=UTC) + timedelta(days=1)
+
+    teachers = (
+        db.query(Profile)
+        .options(joinedload(Profile.user))
+        .filter(Profile.role == AppRole.teacher)
+        .order_by(Profile.full_name)
+        .all()
+    )
+    totals = (
+        db.query(
+            LessonSession.teacher_id,
+            func.count(LessonSession.id).label("session_count"),
+            func.coalesce(func.sum(LessonSession.hours), 0).label("total_hours"),
+        )
+        .filter(
+            LessonSession.hours.isnot(None),
+            LessonSession.session_date >= start_dt,
+            LessonSession.session_date < end_exclusive,
+        )
+        .group_by(LessonSession.teacher_id)
+        .all()
+    )
+    by_teacher = {row.teacher_id: row for row in totals}
+
+    from ..auth import profile_to_dict
+
+    rows = []
+    for teacher in teachers:
+        stats = by_teacher.get(teacher.id)
+        rows.append(
+            {
+                "teacher_id": str(teacher.id),
+                "teacher": profile_to_dict(teacher, teacher.user.email if teacher.user else None),
+                "session_count": int(stats.session_count) if stats else 0,
+                "total_hours": float(stats.total_hours) if stats else 0.0,
+            }
+        )
+    return {
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "teachers": rows,
+        "total_hours": sum(r["total_hours"] for r in rows),
+        "session_count": sum(r["session_count"] for r in rows),
+    }
+
+
 @router.post("/sessions", status_code=201)
 def create_session(body: SessionCreate, profile: Profile = Depends(get_current_profile), db: Session = Depends(get_db)):
-    if profile.role in (AppRole.student, AppRole.parent):
+    if profile.role not in (AppRole.manager, AppRole.teacher):
         raise HTTPException(status_code=403, detail="Students cannot create sessions")
     lesson = db.query(Lesson).filter(Lesson.id == body.lesson_id).first()
     if not lesson:
@@ -135,6 +202,7 @@ def create_session(body: SessionCreate, profile: Profile = Depends(get_current_p
         homework_total=body.homework_total,
         notes=body.notes or "",
         homework_assigned=body.homework_assigned or "",
+        hours=body.hours,
         session_date=body.session_date or datetime.now(UTC),
     )
     db.add(session)
@@ -152,7 +220,7 @@ def update_session(
     profile: Profile = Depends(get_current_profile),
     db: Session = Depends(get_db),
 ):
-    if profile.role in (AppRole.student, AppRole.parent):
+    if profile.role not in (AppRole.manager, AppRole.teacher):
         raise HTTPException(status_code=403, detail="Students cannot edit sessions")
     session = db.query(LessonSession).filter(LessonSession.id == session_id).first()
     if not session:
@@ -192,6 +260,7 @@ def update_session(
             "homework_score",
             "homework_total",
             "session_date",
+            "hours",
         }:
             setattr(session, field, value)
 
@@ -203,7 +272,7 @@ def update_session(
 
 @router.delete("/sessions/{session_id}")
 def delete_session(session_id: UUID, profile: Profile = Depends(get_current_profile), db: Session = Depends(get_db)):
-    if profile.role in (AppRole.student, AppRole.parent):
+    if profile.role not in (AppRole.manager, AppRole.teacher):
         raise HTTPException(status_code=403, detail="Students cannot delete sessions")
     session = db.query(LessonSession).filter(LessonSession.id == session_id).first()
     if not session:
@@ -213,6 +282,9 @@ def delete_session(session_id: UUID, profile: Profile = Depends(get_current_prof
     db.delete(session)
     db.commit()
     return {"id": str(session_id)}
+
+
+@router.post("/sessions/{session_id}/feedback")
 def add_feedback(
     session_id: UUID,
     body: SessionFeedback,

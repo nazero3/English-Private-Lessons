@@ -114,6 +114,8 @@ bash scripts/deploy/deploy.sh
 
 Caddy obtains a free Let's Encrypt certificate automatically.
 
+Install on phones only works over HTTPS (or localhost). After this step, teachers can open the site on their phone and tap **Install** / **Add to Home Screen**.
+
 ### Custom subdomains (e.g. `kinz.service.teacher.edu`)
 
 You can only use a subdomain if **you control the parent domain**. `.edu` domains belong to accredited institutions — ask school IT to create a DNS A record for you.
@@ -183,6 +185,7 @@ Open http://localhost:5173
 | `scripts/deploy/` | Bootstrap, deploy, backup, verify |
 | `backend/` | FastAPI app |
 | `nginx/nginx.conf` | Static files + API reverse proxy |
+| `public/books/` | Course PDFs, bind-mounted into Nginx (not stored in the image) |
 
 ## Cost estimate
 

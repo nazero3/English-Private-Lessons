@@ -12,6 +12,7 @@ const emptyForm = { email: '', password: '', full_name: '' }
 const TABS = [
   { id: 'access', label: 'Curriculum access' },
   { id: 'teachers', label: 'Teachers' },
+  { id: 'operations', label: 'Operations' },
   { id: 'library', label: 'Content library' },
 ]
 
@@ -36,8 +37,11 @@ export default function ManagerHome() {
   const [assignments, setAssignments] = useState([])
   const [error, setError] = useState('')
   const [form, setForm] = useState(emptyForm)
+  const [opsForm, setOpsForm] = useState(emptyForm)
   const [editForm, setEditForm] = useState(emptyForm)
   const [editingTeacherId, setEditingTeacherId] = useState(null)
+  const [editingOpsId, setEditingOpsId] = useState(null)
+  const [opsEditForm, setOpsEditForm] = useState(emptyForm)
   const [message, setMessage] = useState('')
 
   const load = async () => {
@@ -118,13 +122,57 @@ export default function ManagerHome() {
 
   const deleteTeacher = async (teacher) => {
     const ok = window.confirm(
-      `Delete teacher "${teacher.full_name}"?\nThis removes their account, course assignments, and session history.`,
+      `Delete ${teacher.full_name}? Their sessions and student links stay unless you remove those separately.`,
     )
     if (!ok) return
     await runAction(async () => {
       await api.deleteTeacher(teacher.id)
       if (editingTeacherId === teacher.id) cancelEdit()
-    }, `Deleted ${teacher.full_name}.`)
+    }, 'Teacher removed.')
+  }
+
+  const createOperations = async (e) => {
+    e.preventDefault()
+    await runAction(async () => {
+      await api.createOperations(opsForm)
+      setOpsForm(emptyForm)
+    }, 'Operations account created.')
+  }
+
+  const startEditOps = (ops) => {
+    setEditingOpsId(ops.id)
+    setOpsEditForm({
+      full_name: ops.full_name || '',
+      email: ops.email || '',
+      password: '',
+    })
+    setMessage('')
+    setError('')
+    setTab('operations')
+  }
+
+  const cancelEditOps = () => {
+    setEditingOpsId(null)
+    setOpsEditForm(emptyForm)
+  }
+
+  const saveOperations = async (e) => {
+    e.preventDefault()
+    if (!editingOpsId) return
+    await runAction(async () => {
+      await api.updateOperations(editingOpsId, opsEditForm)
+      setEditingOpsId(null)
+      setOpsEditForm(emptyForm)
+    }, 'Operations account updated.')
+  }
+
+  const deleteOperations = async (ops) => {
+    const ok = window.confirm(`Delete operations account ${ops.full_name}?`)
+    if (!ok) return
+    await runAction(async () => {
+      await api.deleteOperations(ops.id)
+      if (editingOpsId === ops.id) cancelEditOps()
+    }, 'Operations account removed.')
   }
 
   const togglePrivateLessons = (teacherId, enabled) =>
@@ -152,7 +200,9 @@ export default function ManagerHome() {
     )
 
   const teachers = profiles.filter((p) => p.role === 'teacher')
+  const operations = profiles.filter((p) => p.role === 'operations')
   const editingTeacher = teachers.find((t) => t.id === editingTeacherId) || null
+  const editingOps = operations.find((p) => p.id === editingOpsId) || null
 
   const countAccess = (t) => {
     const packs = courses.filter((c) => isAssigned(t.id, c.id)).length
@@ -183,6 +233,9 @@ export default function ManagerHome() {
           <Link className="btn secondary" to="/manager/sessions">
             View sessions
           </Link>
+          <Link className="btn secondary" to="/manager/hours">
+            Teacher hours
+          </Link>
         </div>
       </header>
 
@@ -202,6 +255,9 @@ export default function ManagerHome() {
             {item.label}
             {item.id === 'access' && teachers.length ? (
               <span className="manager-tabs__count">{teachers.length}</span>
+            ) : null}
+            {item.id === 'operations' && operations.length ? (
+              <span className="manager-tabs__count">{operations.length}</span>
             ) : null}
           </button>
         ))}
@@ -463,6 +519,129 @@ export default function ManagerHome() {
                   Save changes
                 </button>
                 <button className="btn secondary" type="button" onClick={cancelEdit}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
+
+      {tab === 'operations' ? (
+        <section className="manager-section" role="tabpanel">
+          <div className="manager-section__intro">
+            <h2>Operations</h2>
+            <p className="muted">
+              Create logins for operations staff. They can see teacher hours and all sessions — not
+              curriculum or families.
+            </p>
+          </div>
+
+          <div className="grid-2">
+            <section className="panel">
+              <h3>Create operations account</h3>
+              {!api.isSupabaseConfigured ? (
+                <form onSubmit={createOperations}>
+                  <div className="field">
+                    <label>Full name</label>
+                    <input
+                      value={opsForm.full_name}
+                      onChange={(e) => setOpsForm({ ...opsForm, full_name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Email</label>
+                    <input
+                      type="email"
+                      value={opsForm.email}
+                      onChange={(e) => setOpsForm({ ...opsForm, email: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Password</label>
+                    <input
+                      type="password"
+                      value={opsForm.password}
+                      onChange={(e) => setOpsForm({ ...opsForm, password: e.target.value })}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <button className="btn" type="submit">
+                    Add operations account
+                  </button>
+                </form>
+              ) : (
+                <p className="muted">Operations accounts require the FastAPI backend.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <h3>Accounts ({operations.length})</h3>
+              {!operations.length ? (
+                <p className="muted">No operations accounts yet.</p>
+              ) : (
+                <ul className="teacher-account-list">
+                  {operations.map((p) => (
+                    <li key={p.id}>
+                      <div>
+                        <strong>{p.full_name}</strong>
+                        <div className="muted">{p.email || '—'}</div>
+                      </div>
+                      <div className="actions">
+                        <button type="button" className="btn secondary" onClick={() => startEditOps(p)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn ghost" onClick={() => deleteOperations(p)}>
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+
+          {editingOps ? (
+            <form className="panel teacher-edit-form" onSubmit={saveOperations}>
+              <h3>Edit {editingOps.full_name}</h3>
+              <div className="grid-2">
+                <div className="field">
+                  <label>Full name</label>
+                  <input
+                    value={opsEditForm.full_name}
+                    onChange={(e) => setOpsEditForm({ ...opsEditForm, full_name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={opsEditForm.email}
+                    onChange={(e) => setOpsEditForm({ ...opsEditForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="field">
+                <label>New password (optional)</label>
+                <input
+                  type="password"
+                  value={opsEditForm.password}
+                  onChange={(e) => setOpsEditForm({ ...opsEditForm, password: e.target.value })}
+                  minLength={6}
+                  placeholder="Leave blank to keep current password"
+                />
+              </div>
+              <div className="actions">
+                <button className="btn" type="submit">
+                  Save changes
+                </button>
+                <button className="btn secondary" type="button" onClick={cancelEditOps}>
                   Cancel
                 </button>
               </div>

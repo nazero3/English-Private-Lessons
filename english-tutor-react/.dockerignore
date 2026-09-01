@@ -1,0 +1,22 @@
+# Frontend image: React build + Nginx. Backend has its own Dockerfile.
+node_modules
+dist
+.git
+.env
+.env.*
+!.env.example
+*.md
+docs
+scripts
+supabase
+backend
+backups
+**/.venv
+**/__pycache__
+*.log
+.vscode
+.idea
+.DS_Store
+
+# Course PDFs are bind-mounted at runtime (see docker-compose.yml)
+public/books

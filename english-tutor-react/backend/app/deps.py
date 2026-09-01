@@ -44,6 +44,16 @@ def require_staff(profile: Profile = Depends(get_current_profile)) -> Profile:
     return profile
 
 
+def require_ops_or_manager(profile: Profile = Depends(get_current_profile)) -> Profile:
+    if profile.role not in (AppRole.manager, AppRole.operations):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Operations or manager access required")
+    return profile
+
+
+def can_see_all_sessions(profile: Profile) -> bool:
+    return profile.role in (AppRole.manager, AppRole.operations)
+
+
 def require_parent(profile: Profile = Depends(get_current_profile)) -> Profile:
     if profile.role != AppRole.parent:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Parent access required")

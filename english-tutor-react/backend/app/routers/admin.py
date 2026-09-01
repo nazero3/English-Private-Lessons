@@ -7,7 +7,15 @@ from ..auth import hash_password, profile_to_dict
 from ..database import get_db
 from ..deps import get_current_profile, require_manager
 from ..models import AppRole, Profile, TeacherCourseAssignment, User
-from ..schemas import CreateTeacherRequest, FlagRequest, ProfileOut, SetAssignmentRequest, UpdateTeacherRequest
+from ..schemas import (
+    CreateOperationsRequest,
+    CreateTeacherRequest,
+    FlagRequest,
+    ProfileOut,
+    SetAssignmentRequest,
+    UpdateOperationsRequest,
+    UpdateTeacherRequest,
+)
 
 router = APIRouter(tags=["admin"])
 
@@ -17,7 +25,7 @@ def list_profiles(_: Profile = Depends(require_manager), db: Session = Depends(g
     rows = (
         db.query(Profile)
         .options(joinedload(Profile.user))
-        .filter(Profile.role.in_((AppRole.manager, AppRole.teacher)))
+        .filter(Profile.role.in_((AppRole.manager, AppRole.teacher, AppRole.operations)))
         .order_by(Profile.full_name)
         .all()
     )
@@ -32,7 +40,7 @@ def update_profile_role(
     db: Session = Depends(get_db),
 ):
     role = body.get("role")
-    if role not in ("manager", "teacher"):
+    if role not in ("manager", "teacher", "operations"):
         raise HTTPException(status_code=400, detail="Invalid role")
     profile = db.query(Profile).filter(Profile.id == profile_id).first()
     if not profile:
@@ -210,3 +218,71 @@ def _teacher_or_404(db: Session, teacher_id: UUID) -> Profile:
     if not profile:
         raise HTTPException(status_code=404, detail="Teacher not found")
     return profile
+
+
+def _ops_or_404(db: Session, ops_id: UUID) -> tuple[Profile, User]:
+    profile = db.query(Profile).filter(Profile.id == ops_id, Profile.role == AppRole.operations).first()
+    user = db.query(User).filter(User.id == ops_id).first()
+    if not profile or not user:
+        raise HTTPException(status_code=404, detail="Operations account not found")
+    return profile, user
+
+
+@router.post("/operations", status_code=201)
+def create_operations(
+    body: CreateOperationsRequest, _: Profile = Depends(require_manager), db: Session = Depends(get_db)
+):
+    email = body.email.lower().strip()
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already exists")
+    user_id = uuid4()
+    user = User(id=user_id, email=email, password_hash=hash_password(body.password))
+    profile = Profile(
+        id=user_id,
+        full_name=body.full_name.strip(),
+        role=AppRole.operations,
+        can_access_private_lessons=False,
+        can_access_math_grade9=False,
+        can_access_math_grade12=False,
+        can_access_physics_grade12=False,
+    )
+    db.add(user)
+    db.add(profile)
+    db.commit()
+    return profile_to_dict(profile, email)
+
+
+@router.patch("/operations/{ops_id}")
+def update_operations(
+    ops_id: UUID,
+    body: UpdateOperationsRequest,
+    _: Profile = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    profile, user = _ops_or_404(db, ops_id)
+
+    if body.full_name is not None:
+        profile.full_name = body.full_name.strip()
+    if body.email is not None:
+        email = body.email.lower().strip()
+        taken = db.query(User).filter(User.email == email, User.id != ops_id).first()
+        if taken:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        user.email = email
+    if body.password:
+        user.password_hash = hash_password(body.password)
+
+    db.commit()
+    db.refresh(profile)
+    db.refresh(user)
+    return profile_to_dict(profile, user.email)
+
+
+@router.delete("/operations/{ops_id}")
+def delete_operations(ops_id: UUID, manager: Profile = Depends(require_manager), db: Session = Depends(get_db)):
+    if ops_id == manager.id:
+        raise HTTPException(status_code=400, detail="You cannot delete the account you are signed in with")
+    _profile, user = _ops_or_404(db, ops_id)
+    db.delete(user)
+    db.commit()
+    return {"id": str(ops_id)}

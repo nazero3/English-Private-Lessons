@@ -26,6 +26,7 @@ TEACHER_ID = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 STUDENT_USER_ID = UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
 STUDENT_ROSTER_ID = UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
 PARENT_ID = UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+OPS_ID = UUID("ffffffff-ffff-ffff-ffff-ffffffffffff")
 COURSE_G9 = UUID("11111111-1111-1111-1111-111111111111")
 COURSE_G12 = UUID("22222222-2222-2222-2222-222222222222")
 
@@ -57,6 +58,12 @@ def patch_db_defaults(db: Session) -> None:
     conn = db.connection()
     try:
         conn.exec_driver_sql("ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'parent'")
+        db.commit()
+    except Exception:
+        db.rollback()
+    conn = db.connection()
+    try:
+        conn.exec_driver_sql("ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'operations'")
         db.commit()
     except Exception:
         db.rollback()
@@ -99,6 +106,9 @@ def patch_db_defaults(db: Session) -> None:
     )
     conn.exec_driver_sql(
         "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS homework_assigned text NOT NULL DEFAULT ''"
+    )
+    conn.exec_driver_sql(
+        "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS hours numeric(4,2)"
     )
     conn.exec_driver_sql(
         "CREATE UNIQUE INDEX IF NOT EXISTS students_user_id_uidx ON students (user_id) WHERE user_id IS NOT NULL"
@@ -194,6 +204,7 @@ def seed_users(db: Session) -> None:
 
     ensure_demo_student(db)
     ensure_demo_parent(db)
+    ensure_demo_operations(db)
     ensure_family_catalog(db)
 
 
@@ -323,6 +334,28 @@ def ensure_demo_parent(db: Session) -> None:
             tier="bronze",
             opted_in=True,
             sort_order=1,
+        )
+    )
+    db.commit()
+
+
+def ensure_demo_operations(db: Session) -> None:
+    if db.query(Profile).filter(Profile.id == OPS_ID).first():
+        return
+    if db.query(User).filter(User.email == "ops@lesson-sheets.app").first():
+        return
+    db.add(
+        User(
+            id=OPS_ID,
+            email="ops@lesson-sheets.app",
+            password_hash=hash_password("changeme"),
+        )
+    )
+    db.add(
+        Profile(
+            id=OPS_ID,
+            full_name="Operations",
+            role=AppRole.operations,
         )
     )
     db.commit()

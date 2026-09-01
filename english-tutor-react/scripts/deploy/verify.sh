@@ -32,5 +32,13 @@ if [[ "$STATUS" != "200" ]]; then
 fi
 echo "  HTTP $STATUS"
 
+echo "Checking ${BASE}/manifest.webmanifest ..."
+MANIFEST="$(curl -sf -o /dev/null -w '%{http_code}' "${BASE}/manifest.webmanifest")"
+if [[ "$MANIFEST" != "200" ]]; then
+  echo "  FAIL: HTTP $MANIFEST (PWA manifest missing)"
+  exit 1
+fi
+echo "  HTTP $MANIFEST"
+
 echo ""
 echo "Deployment looks healthy at ${BASE}"

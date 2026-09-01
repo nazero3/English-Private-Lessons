@@ -111,6 +111,24 @@ export const httpApi = {
     return request(`/api/teachers/${teacherId}`, { method: 'DELETE' })
   },
 
+  async createOperations(payload) {
+    return request('/api/operations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async updateOperations(opsId, payload) {
+    return request(`/api/operations/${opsId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async deleteOperations(opsId) {
+    return request(`/api/operations/${opsId}`, { method: 'DELETE' })
+  },
+
   async listCourses(profile) {
     return request('/api/courses')
   },
@@ -262,6 +280,14 @@ export const httpApi = {
 
   async listSessions(profile) {
     return request('/api/sessions')
+  },
+
+  async hoursSummary({ from, to } = {}) {
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    const q = params.toString()
+    return request(`/api/hours/summary${q ? `?${q}` : ''}`)
   },
 
   async listNotifications(profile) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { coursebookSubjectFromPath } from '../lib/coursebookRoutes'
@@ -93,11 +93,87 @@ export function RequireMathGrade9() {
   return <Outlet />
 }
 
+function IconHome() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 4.2 4 10.4V20h5.5v-5.5h5V20H20v-9.6L12 4.2Zm0-2.2 10 7.7V22h-8.5v-5.5h-3V22H2V11.7L12 2Z"
+      />
+    </svg>
+  )
+}
+
+function IconPeople() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Zm0-5a1.5 1.5 0 1 1-1.5 1.5A1.5 1.5 0 0 1 9 6Zm7.5 5a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0-4a1 1 0 1 1-1 1 1 1 0 0 1 1-1ZM9 12.5c-3.2 0-6 1.7-6 4.2V19h12v-2.3c0-2.5-2.8-4.2-6-4.2Zm-4 4.2c.2-1.3 2-2.2 4-2.2s3.8.9 4 2.2Zm12.5-4.2c-.7 0-1.5.1-2.2.3.8.7 1.4 1.6 1.6 2.6h4.1v-1.2c0-1.1-1.5-1.7-3.5-1.7Z"
+      />
+    </svg>
+  )
+}
+
+function IconCalendar() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M7 2h2v2h6V2h2v2h3v18H4V4h3V2Zm11 6H6v12h12V8Zm-9 3h2v2H9v-2Zm4 0h2v2h-2v-2Zm4 0h2v2h-2v-2Z"
+      />
+    </svg>
+  )
+}
+
+function IconClock() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm.8-13h-1.6v6.2l5.1 3 0.8-1.3-4.3-2.5Z"
+      />
+    </svg>
+  )
+}
+
+function primaryNav(role) {
+  if (role === 'manager') {
+    return [
+      { to: '/manager', label: 'Home', end: true, icon: <IconHome /> },
+      { to: '/manager/students', label: 'Students', icon: <IconPeople /> },
+      { to: '/manager/sessions', label: 'Sessions', icon: <IconCalendar /> },
+      { to: '/manager/hours', label: 'Hours', icon: <IconClock /> },
+    ]
+  }
+  if (role === 'operations') {
+    return [
+      { to: '/operations', label: 'Hours', end: true, icon: <IconClock /> },
+      { to: '/operations/sessions', label: 'Sessions', icon: <IconCalendar /> },
+    ]
+  }
+  if (role === 'teacher') {
+    return [
+      { to: '/teacher', label: 'Home', end: true, icon: <IconHome /> },
+      { to: '/teacher/students', label: 'Students', icon: <IconPeople /> },
+      { to: '/teacher/sessions', label: 'Classes', icon: <IconCalendar /> },
+    ]
+  }
+  return []
+}
+
+function secondaryLinks(role) {
+  if (role === 'manager') return [{ to: '/manager/parents', label: 'Families' }]
+  if (role === 'teacher') return [{ to: '/teacher/parents', label: 'Families' }]
+  return []
+}
+
 export function AppLayout() {
   const { profile, signOut } = useAuth()
   const home = homePath(profile?.role)
   const [notifications, setNotifications] = useState([])
   const [openNotes, setOpenNotes] = useState(false)
+  const [openMore, setOpenMore] = useState(false)
 
   const loadNotifications = async () => {
     if (!profile || profile.role !== 'teacher') {
@@ -116,6 +192,8 @@ export function AppLayout() {
   }, [profile])
 
   const unreadCount = notifications.filter((n) => !n.read).length
+  const tabs = primaryNav(profile?.role)
+  const extra = secondaryLinks(profile?.role)
 
   const markOne = async (id) => {
     try {
@@ -136,106 +214,192 @@ export function AppLayout() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${tabs.length ? ' has-bottom-nav' : ''}`}>
       <header className="topbar no-print">
         <div>
           <Link className="brand" to={home}>
             Lesson Sheets
           </Link>
           <div className="muted" style={{ fontSize: '0.85rem' }}>
-            {profile?.full_name} · <span className="badge">{profile?.role}</span>
+            {profile?.full_name}
           </div>
         </div>
         <div className="actions">
-          {profile?.role === 'manager' ? (
-            <>
-              <Link className="btn secondary" to="/manager/students">
-                Students
-              </Link>
-              <Link className="btn secondary" to="/manager/parents">
-                Families
-              </Link>
-              <Link className="btn secondary" to="/manager/sessions">
-                Sessions
-              </Link>
-            </>
-          ) : null}
+          <div className="topbar-nav">
+            {profile?.role === 'manager' ? (
+              <>
+                <Link className="btn secondary" to="/manager/students">
+                  Students
+                </Link>
+                <Link className="btn secondary" to="/manager/parents">
+                  Families
+                </Link>
+                <Link className="btn secondary" to="/manager/sessions">
+                  Sessions
+                </Link>
+                <Link className="btn secondary" to="/manager/hours">
+                  Hours
+                </Link>
+              </>
+            ) : null}
+
+            {profile?.role === 'operations' ? (
+              <>
+                <Link className="btn secondary" to="/operations">
+                  Hours
+                </Link>
+                <Link className="btn secondary" to="/operations/sessions">
+                  Sessions
+                </Link>
+              </>
+            ) : null}
+
+            {profile?.role === 'teacher' ? (
+              <>
+                <NavLink
+                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
+                  to="/teacher/students"
+                >
+                  Students
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
+                  to="/teacher/parents"
+                >
+                  Families
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `btn${isActive ? '' : ' secondary'}`}
+                  to="/teacher/sessions"
+                >
+                  Classes
+                </NavLink>
+              </>
+            ) : null}
+          </div>
 
           {profile?.role === 'teacher' ? (
-            <>
-              <Link className="btn secondary" to="/teacher/students">
-                Students
-              </Link>
-              <Link className="btn secondary" to="/teacher/parents">
-                Families
-              </Link>
-              <Link className="btn secondary" to="/teacher/sessions">
-                My sessions
-              </Link>
-              <div className="notify-wrap">
-                <button
-                  type="button"
-                  className="btn secondary notify-btn"
-                  onClick={() => setOpenNotes((v) => !v)}
-                >
-                  Notifications
-                  {unreadCount > 0 ? <span className="notify-count">{unreadCount}</span> : null}
-                </button>
-                {openNotes ? (
-                  <div className="notify-panel">
-                    <div className="notify-panel__head">
-                      <strong>Notifications</strong>
-                      {unreadCount > 0 ? (
-                        <button type="button" className="btn ghost" onClick={markAll}>
-                          Mark all read
-                        </button>
-                      ) : null}
-                    </div>
-                    {!notifications.length ? (
-                      <p className="muted">No notifications yet.</p>
-                    ) : (
-                      <ul className="notify-list">
-                        {notifications.map((n) => (
-                          <li key={n.id} className={n.read ? '' : 'is-unread'}>
-                            <div className="notify-item__title">{n.title}</div>
-                            <p>{n.message}</p>
-                            <div className="notify-item__meta">
-                              <span className="muted">
-                                {new Date(n.created_at).toLocaleString()}
-                              </span>
-                              {!n.read ? (
-                                <button
-                                  type="button"
-                                  className="btn ghost"
-                                  onClick={() => markOne(n.id)}
-                                >
-                                  Mark read
-                                </button>
-                              ) : null}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <Link
-                      className="btn secondary block"
-                      to="/teacher/sessions"
-                      onClick={() => setOpenNotes(false)}
-                    >
-                      Open sessions
-                    </Link>
+            <div className="notify-wrap">
+              <button
+                type="button"
+                className="btn secondary notify-btn"
+                aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
+                onClick={() => {
+                  setOpenMore(false)
+                  setOpenNotes((v) => !v)
+                }}
+              >
+                <svg className="notify-btn__icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M12 22a2.2 2.2 0 0 0 2.2-2.2h-4.4A2.2 2.2 0 0 0 12 22Zm8-5.5h-1.2V10a6.8 6.8 0 0 0-5.2-6.6V2.8a1.6 1.6 0 1 0-3.2 0v.6A6.8 6.8 0 0 0 5.2 10v6.5H4V18h16Z"
+                  />
+                </svg>
+                <span className="notify-btn__label">Notifications</span>
+                {unreadCount > 0 ? <span className="notify-count">{unreadCount}</span> : null}
+              </button>
+              {openNotes ? (
+                <div className="notify-panel">
+                  <div className="notify-panel__head">
+                    <strong>Notifications</strong>
+                    {unreadCount > 0 ? (
+                      <button type="button" className="btn ghost" onClick={markAll}>
+                        Mark all read
+                      </button>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
-            </>
+                  {!notifications.length ? (
+                    <p className="muted">No notifications yet.</p>
+                  ) : (
+                    <ul className="notify-list">
+                      {notifications.map((n) => (
+                        <li key={n.id} className={n.read ? '' : 'is-unread'}>
+                          <div className="notify-item__title">{n.title}</div>
+                          <p>{n.message}</p>
+                          <div className="notify-item__meta">
+                            <span className="muted">
+                              {new Date(n.created_at).toLocaleString()}
+                            </span>
+                            {!n.read ? (
+                              <button
+                                type="button"
+                                className="btn ghost"
+                                onClick={() => markOne(n.id)}
+                              >
+                                Mark read
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Link
+                    className="btn secondary block"
+                    to="/teacher/sessions"
+                    onClick={() => setOpenNotes(false)}
+                  >
+                    Open classes
+                  </Link>
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
-          <button type="button" className="btn ghost" onClick={() => signOut()}>
+          <button type="button" className="btn ghost topbar-signout" onClick={() => signOut()}>
             Sign out
           </button>
+
+          <div className="more-wrap topbar-more">
+            <button
+              type="button"
+              className="btn secondary"
+              aria-expanded={openMore}
+              aria-haspopup="menu"
+              onClick={() => {
+                setOpenNotes(false)
+                setOpenMore((v) => !v)
+              }}
+            >
+              More
+            </button>
+            {openMore ? (
+              <div className="more-panel" role="menu">
+                {extra.map((item) => (
+                  <Link
+                    key={item.to}
+                    className="more-panel__link"
+                    to={item.to}
+                    role="menuitem"
+                    onClick={() => setOpenMore(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+                <button type="button" className="more-panel__link" role="menuitem" onClick={() => signOut()}>
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
       <Outlet />
+      {tabs.length ? (
+        <nav className="bottom-nav no-print" aria-label="Main">
+          {tabs.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={Boolean(item.end)}
+              className={({ isActive }) => `bottom-nav__item${isActive ? ' is-active' : ''}`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      ) : null}
     </div>
   )
 }

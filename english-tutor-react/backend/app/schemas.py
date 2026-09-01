@@ -45,6 +45,14 @@ class UpdateTeacherRequest(BaseModel):
     full_name: str | None = None
 
 
+class CreateOperationsRequest(CreateTeacherRequest):
+    pass
+
+
+class UpdateOperationsRequest(UpdateTeacherRequest):
+    pass
+
+
 class CourseOut(BaseModel):
     id: UUID
     code: str
@@ -121,6 +129,7 @@ class SessionCreate(BaseModel):
     notes: str = ""
     homework_assigned: str = ""
     session_date: datetime | None = None
+    hours: float | None = Field(default=None, ge=0.5, le=24)
 
 
 class SessionUpdate(BaseModel):
@@ -138,6 +147,7 @@ class SessionUpdate(BaseModel):
     notes: str | None = None
     homework_assigned: str | None = None
     session_date: datetime | None = None
+    hours: float | None = Field(default=None, ge=0.5, le=24)
 
 
 class SessionFeedback(BaseModel):

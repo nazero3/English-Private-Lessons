@@ -14,6 +14,7 @@ class AppRole(str, enum.Enum):
     teacher = "teacher"
     student = "student"
     parent = "parent"
+    operations = "operations"
 
 
 class User(Base):
@@ -124,6 +125,7 @@ class LessonSession(Base):
     homework_total: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     homework_assigned: Mapped[str] = mapped_column(Text, default="")
+    hours: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
     session_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     manager_feedback: Mapped[str] = mapped_column(Text, default="")
     manager_feedback_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

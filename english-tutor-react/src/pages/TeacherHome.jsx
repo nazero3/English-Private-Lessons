@@ -1,10 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ENGLISH_FILE_COURSES } from '../data/englishFile'
 import { MATH_GRADES } from '../data/mathRegistry'
 import { PHYSICS_GRADES } from '../data/physicsRegistry'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
+import LogClassForm from '../components/teacher/LogClassForm'
+
+function monthStartIso() {
+  const d = new Date()
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
+}
+
+function formatHours(n) {
+  const value = Number(n) || 0
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
 
 export default function TeacherHome() {
   const {
@@ -15,17 +26,24 @@ export default function TeacherHome() {
     canAccessPhysicsGrade12,
   } = useAuth()
   const [courses, setCourses] = useState([])
+  const [sessions, setSessions] = useState([])
   const [error, setError] = useState('')
 
+  const load = async () => {
+    try {
+      const [coursesData, sessionRows] = await Promise.all([
+        api.listCourses(profile),
+        api.listSessions(profile),
+      ])
+      setCourses(coursesData)
+      setSessions(sessionRows)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   useEffect(() => {
-    ;(async () => {
-      try {
-        const coursesData = await api.listCourses(profile)
-        setCourses(coursesData)
-      } catch (err) {
-        setError(err.message)
-      }
-    })()
+    load()
   }, [profile])
 
   const mathGrades = [
@@ -38,30 +56,63 @@ export default function TeacherHome() {
   const hasAnything =
     courses.length > 0 || canAccessPrivateLessons || mathGrades.length > 0 || physicsGrades.length > 0
 
+  const monthHours = useMemo(() => {
+    const start = monthStartIso()
+    return sessions.reduce((sum, s) => {
+      if (s.hours == null || s.hours === '') return sum
+      const t = new Date(s.session_date || s.created_at).getTime()
+      if (t < start) return sum
+      return sum + Number(s.hours)
+    }, 0)
+  }, [sessions])
+
+  const recent = sessions.slice(0, 4)
+
   return (
     <div className="teacher-dash">
       <header className="teacher-dash__hero">
         <div>
-          <h1>Teacher workspace</h1>
-          <p className="muted">
-            Open the curriculum your manager assigned. Lesson packs, private lessons, and math
-            live here.
-          </p>
+          <h1>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</h1>
+          <p className="muted">After class, log the hours. Materials are below when you need them.</p>
         </div>
-        <div className="actions">
-          <Link className="btn secondary" to="/teacher/students">
-            Students
-          </Link>
-          <Link className="btn secondary" to="/teacher/parents">
-            Families
-          </Link>
-          <Link className="btn secondary" to="/teacher/sessions">
-            My sessions
-          </Link>
+        <div className="teacher-dash__stat">
+          <span className="muted">This month</span>
+          <strong>{formatHours(monthHours)}h</strong>
         </div>
       </header>
 
       {error ? <p className="error">{error}</p> : null}
+
+      <section className="panel log-class-panel">
+        <div className="log-class-panel__head">
+          <div>
+            <h2>Log a class</h2>
+            <p className="muted">Student, hours, and the unit you taught. That is enough.</p>
+          </div>
+        </div>
+        <LogClassForm profile={profile} onSaved={load} />
+      </section>
+
+      {recent.length ? (
+        <section className="teacher-block">
+          <div className="teacher-block__intro teacher-block__intro--row">
+            <h2>Recent classes</h2>
+            <Link to="/teacher/sessions">See all</Link>
+          </div>
+          <ul className="recent-class-list">
+            {recent.map((s) => (
+              <li key={s.id}>
+                <span className="recent-class-list__who">{s.student_name}</span>
+                <span className="muted">
+                  {new Date(s.session_date || s.created_at).toLocaleDateString()}
+                  {s.course?.title ? ` · ${s.course.title}` : ''}
+                </span>
+                <strong>{s.hours != null ? `${formatHours(s.hours)}h` : '—'}</strong>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {!hasAnything ? (
         <section className="panel">
@@ -79,11 +130,7 @@ export default function TeacherHome() {
           </div>
           <div className="library-grid">
             {courses.map((course) => (
-              <Link
-                key={course.id}
-                className="library-card"
-                to={`/teacher/courses/${course.id}`}
-              >
+              <Link key={course.id} className="library-card" to={`/teacher/courses/${course.id}`}>
                 <span className="library-card__tag">Sheets</span>
                 <strong>{course.title}</strong>
                 <span className="muted">Grade {course.grade} · open units</span>
@@ -97,9 +144,7 @@ export default function TeacherHome() {
         <section className="teacher-block">
           <div className="teacher-block__intro">
             <h2>English File · private lessons</h2>
-            <p className="muted">
-              Beginner and Intermediate coursebooks with PDF sessions and printable sheets.
-            </p>
+            <p className="muted">Beginner and Intermediate coursebooks with PDF sessions.</p>
           </div>
           <div className="library-grid">
             {ENGLISH_FILE_COURSES.map((c) => (
@@ -118,11 +163,6 @@ export default function TeacherHome() {
                 </span>
               </Link>
             ))}
-            <Link className="library-card library-card--subtle" to="/teacher/private-lessons">
-              <span className="library-card__tag">Overview</span>
-              <strong>English File levels</strong>
-              <span className="muted">Beginner + Intermediate</span>
-            </Link>
           </div>
         </section>
       ) : null}
@@ -149,15 +189,6 @@ export default function TeacherHome() {
                 </span>
               </Link>
             ))}
-            <Link
-              className="library-card library-card--subtle"
-              to={grade.basePath}
-              dir="rtl"
-            >
-              <span className="library-card__tag">نظرة عامة</span>
-              <strong>كل كتب {grade.title}</strong>
-              <span className="muted">{grade.subtitle}</span>
-            </Link>
           </div>
         </section>
       ))}
@@ -184,15 +215,6 @@ export default function TeacherHome() {
                 </span>
               </Link>
             ))}
-            <Link
-              className="library-card library-card--subtle"
-              to={grade.basePath}
-              dir="rtl"
-            >
-              <span className="library-card__tag">نظرة عامة</span>
-              <strong>{grade.title}</strong>
-              <span className="muted">{grade.subtitle}</span>
-            </Link>
           </div>
         </section>
       ))}

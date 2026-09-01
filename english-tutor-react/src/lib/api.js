@@ -109,6 +109,16 @@ const supabaseApi = {
     )
   },
 
+  async createOperations() {
+    throw new Error('Operations accounts require the FastAPI backend')
+  },
+  async updateOperations() {
+    throw new Error('Operations accounts require the FastAPI backend')
+  },
+  async deleteOperations() {
+    throw new Error('Operations accounts require the FastAPI backend')
+  },
+
   async listCourses(profile) {
     const { data, error } = await supabase.from('courses').select('*').order('grade')
     if (error) throw error
@@ -365,6 +375,10 @@ const supabaseApi = {
       manager: s.manager,
       course: s.lesson?.course,
     }))
+  },
+
+  async hoursSummary() {
+    throw new Error('Hours summary requires the FastAPI backend')
   },
 
   async listNotifications(profile) {

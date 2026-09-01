@@ -46,8 +46,8 @@ def _lesson_dict(lesson: Lesson, course: Course | None = None) -> dict:
 
 @router.get("/courses")
 def list_courses(profile: Profile = Depends(get_current_profile), db: Session = Depends(get_db)):
-    if profile.role == AppRole.student:
-        raise HTTPException(status_code=403, detail="Student access is limited to the portal")
+    if profile.role in (AppRole.student, AppRole.parent, AppRole.operations):
+        raise HTTPException(status_code=403, detail="Course access is for teachers and managers")
     if profile.role == AppRole.manager:
         courses = db.query(Course).order_by(Course.grade).all()
     else:
@@ -144,8 +144,8 @@ def grade_quiz(
 
 
 def _ensure_course_access(db: Session, profile: Profile, course_id: UUID) -> None:
-    if profile.role == AppRole.student:
-        raise HTTPException(status_code=403, detail="Student access is limited to the portal")
+    if profile.role in (AppRole.student, AppRole.parent, AppRole.operations):
+        raise HTTPException(status_code=403, detail="Course access is for teachers and managers")
     if profile.role == AppRole.manager:
         return
     if not teacher_has_course(db, profile.id, course_id):

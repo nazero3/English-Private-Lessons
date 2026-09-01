@@ -19,6 +19,13 @@ const SEED_USERS = [
     full_name: 'Teacher',
     role: 'teacher',
   },
+  {
+    id: 'ops-001',
+    email: 'ops@lesson-sheets.app',
+    password: 'changeme',
+    full_name: 'Operations',
+    role: 'operations',
+  },
 ]
 
 function uid(prefix = 'id') {
@@ -397,6 +404,74 @@ export const localApi = {
       db.students = (db.students || []).filter((s) => s.teacher_id !== teacherId)
       db.notifications = (db.notifications || []).filter((n) => n.user_id !== teacherId)
       return { id: teacherId }
+    })
+  },
+
+  async createOperations({ email, password, full_name }) {
+    return withDb((db) => {
+      if (db.users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+        throw new Error('Email already exists')
+      }
+      const id = uid('ops')
+      db.users.push({ id, email, password, full_name, role: 'operations' })
+      const profile = {
+        id,
+        email,
+        full_name,
+        role: 'operations',
+        can_access_private_lessons: false,
+        can_access_math_grade9: false,
+        can_access_math_grade12: false,
+        can_access_physics_grade12: false,
+      }
+      db.profiles.push(profile)
+      return profile
+    })
+  },
+
+  async updateOperations(opsId, { email, password, full_name }) {
+    return withDb((db) => {
+      const profile = db.profiles.find((p) => p.id === opsId)
+      const user = db.users.find((u) => u.id === opsId)
+      if (!profile || !user) throw new Error('Operations account not found')
+      if (profile.role !== 'operations') throw new Error('Only operations accounts can be edited here')
+
+      const nextEmail = String(email || '').trim()
+      const nextName = String(full_name || '').trim()
+      if (!nextEmail || !nextName) throw new Error('Name and email are required')
+
+      const emailTaken = db.users.some(
+        (u) => u.id !== opsId && u.email.toLowerCase() === nextEmail.toLowerCase(),
+      )
+      if (emailTaken) throw new Error('Email already exists')
+
+      user.email = nextEmail
+      user.full_name = nextName
+      profile.email = nextEmail
+      profile.full_name = nextName
+
+      if (password && String(password).trim()) {
+        if (String(password).trim().length < 6) {
+          throw new Error('Password must be at least 6 characters')
+        }
+        user.password = String(password).trim()
+      }
+
+      return profile
+    })
+  },
+
+  async deleteOperations(opsId) {
+    return withDb((db) => {
+      const profile = db.profiles.find((p) => p.id === opsId)
+      if (!profile) throw new Error('Operations account not found')
+      if (profile.role !== 'operations') throw new Error('Only operations accounts can be deleted here')
+      if (db.sessionUserId === opsId) {
+        throw new Error('You cannot delete the account you are signed in with')
+      }
+      db.users = db.users.filter((u) => u.id !== opsId)
+      db.profiles = db.profiles.filter((p) => p.id !== opsId)
+      return { id: opsId }
     })
   },
 
@@ -808,10 +883,12 @@ export const localApi = {
     })
   },
 
-  async listSessions({ asManager, teacherId }) {
+  async listSessions(profile) {
     const db = read()
     let rows = db.sessions
-    if (!asManager) rows = rows.filter((s) => s.teacher_id === teacherId)
+    if (profile?.role === 'teacher') {
+      rows = rows.filter((s) => s.teacher_id === profile.id)
+    }
     return rows.map((s) => ({
       ...s,
       lesson: db.lessons.find((l) => l.id === s.lesson_id),
@@ -821,6 +898,36 @@ export const localApi = {
         (c) => c.id === db.lessons.find((l) => l.id === s.lesson_id)?.course_id,
       ),
     }))
+  },
+
+  async hoursSummary({ from, to } = {}) {
+    const db = read()
+    const teachers = db.profiles.filter((p) => p.role === 'teacher')
+    const start = from ? new Date(`${from}T00:00:00`) : null
+    const end = to ? new Date(`${to}T23:59:59`) : null
+    const inRange = (s) => {
+      if (s.hours == null || s.hours === '') return false
+      const d = new Date(s.session_date || s.created_at)
+      if (start && d < start) return false
+      if (end && d > end) return false
+      return true
+    }
+    const rows = teachers.map((teacher) => {
+      const sessions = db.sessions.filter((s) => s.teacher_id === teacher.id && inRange(s))
+      return {
+        teacher_id: teacher.id,
+        teacher,
+        session_count: sessions.length,
+        total_hours: sessions.reduce((sum, s) => sum + Number(s.hours || 0), 0),
+      }
+    })
+    return {
+      from: from || null,
+      to: to || null,
+      teachers: rows,
+      total_hours: rows.reduce((sum, r) => sum + r.total_hours, 0),
+      session_count: rows.reduce((sum, r) => sum + r.session_count, 0),
+    }
   },
 
   async listNotifications(userId) {
