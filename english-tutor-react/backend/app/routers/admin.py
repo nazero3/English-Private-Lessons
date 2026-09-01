@@ -1,19 +1,17 @@
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
-from ..database import get_db
+from ..database import engine, get_db
 from ..deps import get_current_profile, require_manager
 from ..models import (
     AppRole,
-    LessonSession,
     Notification,
     Profile,
-    Student,
-    StudentScore,
     TeacherCourseAssignment,
     User,
 )
@@ -113,12 +111,113 @@ def update_teacher(
     return profile_to_dict(profile, user.email)
 
 
+def _quote_ident(name: str) -> str:
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _prepare_teacher_delete_schema() -> None:
+    """Run outside the request transaction so a failed ALTER cannot abort the delete."""
+    statements = (
+        "ALTER TABLE students ALTER COLUMN teacher_id DROP NOT NULL",
+        "ALTER TABLE lesson_sessions ALTER COLUMN manager_id DROP NOT NULL",
+        "ALTER TABLE students ALTER COLUMN user_id DROP NOT NULL",
+    )
+    with engine.begin() as conn:
+        for sql in statements:
+            try:
+                conn.exec_driver_sql(sql)
+            except Exception:
+                pass
+
+
+def _sql(db: Session, sql: str, params: dict | None = None) -> None:
+    nested = db.begin_nested()
+    try:
+        db.execute(text(sql), params or {})
+        nested.commit()
+    except Exception:
+        nested.rollback()
+
+
+def _clear_profile_refs(db: Session, profile_id: UUID, reassign_id: UUID) -> list[str]:
+    names = [
+        row[0]
+        for row in db.execute(
+            text("SELECT full_name FROM students WHERE teacher_id = :tid"),
+            {"tid": profile_id},
+        )
+    ]
+    params = {"tid": profile_id, "mid": reassign_id}
+    for sql in (
+        "UPDATE students SET teacher_id = NULL WHERE teacher_id = :tid",
+        "UPDATE lesson_sessions SET manager_id = NULL WHERE manager_id = :tid",
+        "UPDATE lesson_sessions SET teacher_id = :mid WHERE teacher_id = :tid",
+        "UPDATE student_scores SET teacher_id = :mid WHERE teacher_id = :tid",
+        "DELETE FROM teacher_course_assignments WHERE teacher_id = :tid",
+        "DELETE FROM notifications WHERE user_id = :tid",
+        "UPDATE credit_ledger SET created_by = NULL WHERE created_by = :tid",
+        "UPDATE payment_intents SET confirmed_by = NULL WHERE confirmed_by = :tid",
+        "UPDATE prize_redemptions SET fulfilled_by = NULL WHERE fulfilled_by = :tid",
+        "DELETE FROM parent_students WHERE parent_id = :tid",
+    ):
+        _sql(db, sql, params)
+    fks = db.execute(
+        text(
+            """
+            SELECT rel.relname AS table_name, att.attname AS column_name, att.attnotnull AS not_null
+            FROM pg_constraint c
+            JOIN pg_class rel ON rel.oid = c.conrelid
+            JOIN pg_namespace n ON n.oid = rel.relnamespace
+            JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS cols(attnum, ord) ON true
+            JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = cols.attnum
+            WHERE c.contype = 'f'
+              AND c.confrelid = 'profiles'::regclass
+              AND n.nspname = 'public'
+              AND rel.relname <> 'profiles'
+            """
+        )
+    )
+    reassign = {("lesson_sessions", "teacher_id"), ("student_scores", "teacher_id")}
+    prefer_null = {
+        ("students", "teacher_id"),
+        ("students", "user_id"),
+        ("lesson_sessions", "manager_id"),
+        ("credit_ledger", "created_by"),
+        ("payment_intents", "confirmed_by"),
+        ("prize_redemptions", "fulfilled_by"),
+        ("public_spotlights", "parent_id"),
+    }
+    may_delete = {
+        "notifications",
+        "teacher_course_assignments",
+        "parent_students",
+        "prize_redemptions",
+        "public_spotlights",
+    }
+    for table, column, not_null in fks:
+        tbl = _quote_ident(table)
+        col = _quote_ident(column)
+        key = (table, column)
+        if key in reassign:
+            _sql(db, f"UPDATE {tbl} SET {col} = :mid WHERE {col} = :tid", params)
+            _sql(db, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :tid", params)
+        elif key in prefer_null or not not_null:
+            _sql(db, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :tid", params)
+            _sql(db, f"UPDATE {tbl} SET {col} = :mid WHERE {col} = :tid", params)
+        elif table in may_delete:
+            _sql(db, f"DELETE FROM {tbl} WHERE {col} = :tid", params)
+        else:
+            _sql(db, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :tid", params)
+            _sql(db, f"UPDATE {tbl} SET {col} = :mid WHERE {col} = :tid", params)
+            if table in may_delete:
+                _sql(db, f"DELETE FROM {tbl} WHERE {col} = :tid", params)
+    return names
+
+
 def _detach_teacher(db: Session, teacher: Profile, manager: Profile) -> list[str]:
     """Unassign students; keep class history under the manager so hours are not lost."""
-    names = []
-    for student in db.query(Student).filter(Student.teacher_id == teacher.id).all():
-        names.append(student.full_name)
-        student.teacher_id = None
+    _prepare_teacher_delete_schema()
+    names = _clear_profile_refs(db, teacher.id, manager.id)
     if names:
         shown = ", ".join(names[:12])
         extra = f" and {len(names) - 12} more" if len(names) > 12 else ""
@@ -134,23 +233,7 @@ def _detach_teacher(db: Session, teacher: Profile, manager: Profile) -> list[str
                 ),
             )
         )
-    db.query(StudentScore).filter(StudentScore.teacher_id == teacher.id).update(
-        {StudentScore.teacher_id: manager.id},
-        synchronize_session=False,
-    )
-    db.query(LessonSession).filter(LessonSession.teacher_id == teacher.id).update(
-        {LessonSession.teacher_id: manager.id},
-        synchronize_session=False,
-    )
-    db.query(LessonSession).filter(LessonSession.manager_id == teacher.id).update(
-        {LessonSession.manager_id: None},
-        synchronize_session=False,
-    )
-    db.query(TeacherCourseAssignment).filter(TeacherCourseAssignment.teacher_id == teacher.id).delete(
-        synchronize_session=False
-    )
-    db.query(Notification).filter(Notification.user_id == teacher.id).delete(synchronize_session=False)
-    db.flush()
+        db.flush()
     return names
 
 
@@ -161,19 +244,18 @@ def delete_teacher(teacher_id: UUID, manager: Profile = Depends(require_manager)
     profile = db.query(Profile).filter(Profile.id == teacher_id, Profile.role == AppRole.teacher).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Teacher not found")
-    user = db.query(User).filter(User.id == teacher_id).first()
     try:
         unassigned = _detach_teacher(db, profile, manager)
-        if user:
-            db.delete(user)
-        else:
-            db.delete(profile)
+        db.flush()
+        db.expunge_all()
+        db.execute(text("DELETE FROM users WHERE id = :tid"), {"tid": teacher_id})
         db.commit()
-    except IntegrityError:
+    except Exception as exc:
         db.rollback()
+        orig = getattr(exc, "orig", None) or exc
         raise HTTPException(
             status_code=409,
-            detail="This teacher still has linked records that could not be cleared. Try again after checking Students.",
+            detail=f"Could not delete this teacher: {orig}",
         ) from None
     return {
         "id": str(teacher_id),

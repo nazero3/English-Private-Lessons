@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
@@ -25,12 +25,14 @@ function formatHours(n) {
 
 export default function HoursPage() {
   const { profile } = useAuth()
+  const isManager = profile?.role === 'manager'
   const home = homePath(profile?.role)
   const [month, setMonth] = useState(currentMonthValue)
   const [summary, setSummary] = useState(null)
   const [sessions, setSessions] = useState([])
   const [selectedTeacherId, setSelectedTeacherId] = useState(null)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
 
   const load = async () => {
     setError('')
@@ -53,18 +55,66 @@ export default function HoursPage() {
 
   const selectedTeacher = summary?.teachers?.find((t) => t.teacher_id === selectedTeacherId)
 
-  const teacherSessions = useMemo(() => {
-    if (!selectedTeacherId) return []
-    const { from, to } = monthBounds(month)
-    const start = new Date(`${from}T00:00:00`)
-    const end = new Date(`${to}T23:59:59`)
-    return sessions.filter((s) => {
-      if (s.teacher_id !== selectedTeacherId) return false
-      if (s.hours == null || s.hours === '') return false
-      const d = new Date(s.session_date || s.created_at)
-      return d >= start && d <= end
-    })
-  }, [sessions, selectedTeacherId, month])
+  const hoursForTeacher = useCallback(
+    (teacherId) => {
+      if (!teacherId) return []
+      const { from, to } = monthBounds(month)
+      const start = new Date(`${from}T00:00:00`)
+      const end = new Date(`${to}T23:59:59`)
+      return sessions.filter((s) => {
+        if (s.teacher_id !== teacherId) return false
+        if (s.hours == null || s.hours === '') return false
+        const d = new Date(s.session_date || s.created_at)
+        return d >= start && d <= end
+      })
+    },
+    [sessions, month],
+  )
+
+  const teacherSessions = useMemo(
+    () => hoursForTeacher(selectedTeacherId),
+    [hoursForTeacher, selectedTeacherId],
+  )
+
+  const deleteHour = async (session) => {
+    const when = new Date(session.session_date || session.created_at).toLocaleDateString()
+    const ok = window.confirm(
+      `Delete ${formatHours(session.hours)} hours for ${session.student_name} on ${when}?`,
+    )
+    if (!ok) return
+    setError('')
+    setMessage('')
+    try {
+      await api.deleteSession(session.id)
+      await load()
+      setMessage('Hours removed.')
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const deleteTeacherMonthHours = async (teacherId, teacherName) => {
+    const rows = hoursForTeacher(teacherId)
+    if (!rows.length) return
+    const ok = window.confirm(
+      `Delete ${rows.length} class${rows.length === 1 ? '' : 'es'} (${formatHours(
+        rows.reduce((sum, s) => sum + Number(s.hours || 0), 0),
+      )} hours) for ${teacherName || 'this teacher'} in ${month}?`,
+    )
+    if (!ok) return
+    setError('')
+    setMessage('')
+    try {
+      for (const row of rows) {
+        await api.deleteSession(row.id)
+      }
+      await load()
+      setMessage('Teacher hours removed for this month.')
+    } catch (e) {
+      setError(e.message)
+      await load()
+    }
+  }
 
   const exportCsv = () => {
     if (!summary?.teachers?.length) return
@@ -99,6 +149,7 @@ export default function HoursPage() {
       </div>
       <p className="muted">Hours logged on class sessions this month. Check-mode scores are not counted.</p>
       {error ? <p className="error">{error}</p> : null}
+      {message ? <p className="success">{message}</p> : null}
 
       <section className="panel">
         <div className="grid-2">
@@ -129,12 +180,13 @@ export default function HoursPage() {
               <th>Teacher</th>
               <th>Classes</th>
               <th>Hours</th>
+              {isManager ? <th></th> : null}
             </tr>
           </thead>
           <tbody>
             {!summary?.teachers?.length ? (
               <tr>
-                <td colSpan={3} className="muted">
+                <td colSpan={isManager ? 4 : 3} className="muted">
                   No teachers yet.
                 </td>
               </tr>
@@ -157,6 +209,21 @@ export default function HoursPage() {
                   </td>
                   <td>{row.session_count}</td>
                   <td>{formatHours(row.total_hours)}</td>
+                  {isManager ? (
+                    <td>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        disabled={!hoursForTeacher(row.teacher_id).length}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteTeacherMonthHours(row.teacher_id, row.teacher?.full_name)
+                        }}
+                      >
+                        Delete hours
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))
             )}
@@ -166,7 +233,22 @@ export default function HoursPage() {
 
       {selectedTeacher ? (
         <section className="panel">
-          <h2>{selectedTeacher.teacher?.full_name} · {month}</h2>
+          <div className="topbar" style={{ border: 'none', padding: 0, marginBottom: '0.75rem' }}>
+            <h2 style={{ margin: 0 }}>
+              {selectedTeacher.teacher?.full_name} · {month}
+            </h2>
+            {isManager && teacherSessions.length ? (
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() =>
+                  deleteTeacherMonthHours(selectedTeacher.teacher_id, selectedTeacher.teacher?.full_name)
+                }
+              >
+                Delete hours
+              </button>
+            ) : null}
+          </div>
           {!teacherSessions.length ? (
             <p className="muted">No timed classes this month.</p>
           ) : (
@@ -177,6 +259,7 @@ export default function HoursPage() {
                   <th>Student</th>
                   <th>Course</th>
                   <th>Hours</th>
+                  {isManager ? <th></th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -189,6 +272,13 @@ export default function HoursPage() {
                       {s.lesson?.unit_number != null ? ` · U${s.lesson.unit_number}` : ''}
                     </td>
                     <td>{formatHours(s.hours)}</td>
+                    {isManager ? (
+                      <td>
+                        <button type="button" className="btn ghost" onClick={() => deleteHour(s)}>
+                          Delete
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

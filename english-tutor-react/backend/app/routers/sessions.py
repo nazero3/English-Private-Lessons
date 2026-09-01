@@ -376,6 +376,7 @@ def delete_session(session_id: UUID, profile: Profile = Depends(get_current_prof
         raise HTTPException(status_code=404, detail="Session not found")
     if profile.role != AppRole.manager and session.teacher_id != profile.id:
         raise HTTPException(status_code=403, detail="Not your session")
+    db.query(Notification).filter(Notification.session_id == session.id).delete(synchronize_session=False)
     db.delete(session)
     db.commit()
     return {"id": str(session_id)}
