@@ -11,8 +11,8 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
-        name: 'Lesson Sheets',
-        short_name: 'Lessons',
+        name: 'kinz-lessons',
+        short_name: 'kinz-lessons',
         description: 'Lesson workspace for teachers, students, and families',
         theme_color: '#1a2656',
         background_color: '#fffaf0',
