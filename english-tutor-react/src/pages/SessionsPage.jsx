@@ -26,6 +26,7 @@ export default function SessionsPage() {
   const [editingId, setEditingId] = useState(searchParams.get('edit') || '')
   const focusSessionId = searchParams.get('session') || ''
   const teacherFilter = searchParams.get('teacher') || 'all'
+  const openLatestFeedback = searchParams.get('feedback') === '1'
 
   const patchParams = (updates) => {
     const next = new URLSearchParams(searchParams)
@@ -65,6 +66,26 @@ export default function SessionsPage() {
     }
   }
 
+  const removeFeedback = async (session) => {
+    const ok = window.confirm(
+      `Remove manager feedback for ${session.student_name}'s class? The teacher will no longer see this note.`,
+    )
+    if (!ok) return
+    setError('')
+    setMessage('')
+    setBusyId(session.id)
+    try {
+      await api.deleteManagerFeedback(profile, session.id)
+      setFeedbackDrafts((prev) => ({ ...prev, [session.id]: '' }))
+      await load()
+      setMessage('Feedback removed.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusyId('')
+    }
+  }
+
   const teacherOptions = useMemo(() => {
     const map = new Map()
     for (const s of sessions) {
@@ -82,6 +103,12 @@ export default function SessionsPage() {
   }, [canSeeAll, sessions, teacherFilter])
 
   const selectedTeacherName = teacherOptions.find((t) => t.id === teacherFilter)?.name
+
+  const focusedSession = useMemo(() => {
+    if (focusSessionId) return sessions.find((s) => s.id === focusSessionId) || null
+    if (openLatestFeedback) return sessions.find((s) => s.manager_feedback) || null
+    return null
+  }, [focusSessionId, openLatestFeedback, sessions])
 
   const exportCsv = () => {
     const header = [
@@ -129,10 +156,15 @@ export default function SessionsPage() {
   }
 
   useEffect(() => {
-    if (!focusSessionId) return
-    const el = document.getElementById(`session-${focusSessionId}`)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [focusSessionId, visibleSessions])
+    if (!focusedSession) return
+    const timer = window.setTimeout(() => {
+      const el =
+        document.getElementById('session-feedback-focus') ||
+        document.getElementById(`session-${focusedSession.id}`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [focusedSession])
 
   const removeClass = async (session) => {
     const when = new Date(session.session_date || session.created_at).toLocaleDateString()
@@ -196,6 +228,33 @@ export default function SessionsPage() {
       </header>
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
+
+      {canLogSession && focusedSession ? (
+        <section className="panel session-feedback-focus" id="session-feedback-focus">
+          <h2>Manager feedback</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {focusedSession.student_name}
+            {' · '}
+            {new Date(focusedSession.session_date || focusedSession.created_at).toLocaleString()}
+            {focusedSession.course?.title ? ` · ${focusedSession.course.title}` : ''}
+            {focusedSession.lesson?.unit_number != null
+              ? ` · U${focusedSession.lesson.unit_number}`
+              : ''}
+          </p>
+          {focusedSession.manager_feedback ? (
+            <div className="session-card__feedback">
+              <span className="muted">
+                {focusedSession.manager_feedback_at
+                  ? new Date(focusedSession.manager_feedback_at).toLocaleString()
+                  : 'Manager note'}
+              </span>
+              <p>{focusedSession.manager_feedback}</p>
+            </div>
+          ) : (
+            <p className="muted">No manager feedback on this class yet.</p>
+          )}
+        </section>
+      ) : null}
 
       {canLogSession && editingSession ? (
         <section className="panel log-class-panel">
@@ -370,12 +429,24 @@ export default function SessionsPage() {
 
                 {s.manager_feedback ? (
                   <div className="session-card__feedback">
-                    <span className="muted">
-                      Manager feedback
-                      {s.manager_feedback_at
-                        ? ` · ${new Date(s.manager_feedback_at).toLocaleString()}`
-                        : ''}
-                    </span>
+                    <div className="session-card__feedback-head">
+                      <span className="muted">
+                        Manager feedback
+                        {s.manager_feedback_at
+                          ? ` · ${new Date(s.manager_feedback_at).toLocaleString()}`
+                          : ''}
+                      </span>
+                      {isManager ? (
+                        <button
+                          type="button"
+                          className="btn text-danger"
+                          disabled={Boolean(busyId)}
+                          onClick={() => removeFeedback(s)}
+                        >
+                          {busyId === s.id ? 'Deleting…' : 'Delete feedback'}
+                        </button>
+                      ) : null}
+                    </div>
                     <p>{s.manager_feedback}</p>
                   </div>
                 ) : isManager ? (
@@ -397,9 +468,21 @@ export default function SessionsPage() {
                         placeholder="Write a note for this teacher about the session…"
                       />
                     </div>
-                    <button type="button" className="btn" onClick={() => saveFeedback(s.id)}>
-                      Save & notify teacher
-                    </button>
+                    <div className="person-row__tools" style={{ justifyContent: 'flex-start' }}>
+                      <button type="button" className="btn" onClick={() => saveFeedback(s.id)}>
+                        Save & notify teacher
+                      </button>
+                      {s.manager_feedback ? (
+                        <button
+                          type="button"
+                          className="btn text-danger"
+                          disabled={Boolean(busyId)}
+                          onClick={() => removeFeedback(s)}
+                        >
+                          {busyId === s.id ? 'Deleting…' : 'Delete previous feedback'}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
               </article>

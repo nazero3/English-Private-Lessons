@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { coursebookSubjectFromPath } from '../lib/coursebookRoutes'
@@ -173,17 +173,27 @@ function secondaryLinks(role) {
   return []
 }
 
+function sessionIdOf(note) {
+  return note?.session_id || note?.sessionId || null
+}
+
 function notificationHref(note, role) {
   if (note?.type === 'unassigned_students') return '/manager/students'
-  if (note?.session_id) {
+  const sessionId = sessionIdOf(note)
+  if (role === 'teacher') {
+    if (sessionId) return `/teacher/sessions?session=${encodeURIComponent(sessionId)}`
+    return '/teacher/sessions?feedback=1'
+  }
+  if (sessionId) {
     const base = role === 'manager' ? '/manager/sessions' : '/teacher/sessions'
-    return `${base}?session=${encodeURIComponent(note.session_id)}`
+    return `${base}?session=${encodeURIComponent(sessionId)}`
   }
   return null
 }
 
 export function AppLayout() {
   const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
   const home = homePath(profile?.role)
   const [notifications, setNotifications] = useState([])
   const [openNotes, setOpenNotes] = useState(false)
@@ -225,6 +235,15 @@ export function AppLayout() {
     } catch {
       /* ignore */
     }
+  }
+
+  const openNotification = (note) => {
+    const href =
+      notificationHref(note, profile?.role) ||
+      (profile?.role === 'teacher' ? '/teacher/sessions?feedback=1' : null)
+    setOpenNotes(false)
+    if (!note.read) markOne(note.id)
+    if (href) navigate(href)
   }
 
   return (
@@ -322,45 +341,33 @@ export function AppLayout() {
                     <ul className="notify-list">
                       {notifications.map((n) => {
                         const href = notificationHref(n, profile?.role)
-                        const body = (
-                          <>
-                            <div className="notify-item__title">{n.title}</div>
-                            <p>{n.message}</p>
-                            <div className="notify-item__meta">
-                              <span className="muted">
-                                {new Date(n.created_at).toLocaleString()}
-                              </span>
-                            </div>
-                          </>
-                        )
+                        const canOpen = Boolean(href)
+                        const isFeedback =
+                          n.type === 'manager_feedback' || /feedback/i.test(n.title || '')
                         return (
                           <li
                             key={n.id}
-                            className={`${n.read ? '' : 'is-unread'}${href ? ' is-clickable' : ''}`}
+                            className={`${n.read ? '' : 'is-unread'}${canOpen ? ' is-clickable' : ''}`}
                           >
-                            {href ? (
-                              <Link
-                                className="notify-item"
-                                to={href}
-                                onClick={() => {
-                                  setOpenNotes(false)
-                                  if (!n.read) markOne(n.id)
-                                }}
-                              >
-                                {body}
-                              </Link>
-                            ) : (
-                              <div className="notify-item">{body}</div>
-                            )}
-                            {!n.read ? (
-                              <button
-                                type="button"
-                                className="btn ghost notify-item__read"
-                                onClick={() => markOne(n.id)}
-                              >
-                                Mark read
-                              </button>
-                            ) : null}
+                            <button
+                              type="button"
+                              className="notify-item"
+                              disabled={!canOpen}
+                              onClick={() => canOpen && openNotification(n)}
+                            >
+                              <div className="notify-item__title">{n.title}</div>
+                              <p>{n.message}</p>
+                              <div className="notify-item__meta">
+                                <span className="muted">
+                                  {new Date(n.created_at).toLocaleString()}
+                                </span>
+                                {canOpen ? (
+                                  <span className="notify-item__cta">
+                                    {isFeedback ? 'View feedback' : 'Open'}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </button>
                           </li>
                         )
                       })}

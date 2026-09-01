@@ -953,6 +953,20 @@ export const localApi = {
     })
   },
 
+  async deleteManagerFeedback(profile, sessionId) {
+    return withDb((db) => {
+      const session = db.sessions.find((s) => s.id === sessionId)
+      if (!session) throw new Error('Session not found')
+      session.manager_feedback = ''
+      session.manager_feedback_at = null
+      session.manager_id = null
+      db.notifications = (db.notifications || []).filter(
+        (n) => !(n.session_id === sessionId && n.type === 'manager_feedback'),
+      )
+      return session
+    })
+  },
+
   async listSessions(profile) {
     const db = read()
     let rows = db.sessions

@@ -436,6 +436,27 @@ def add_feedback(
     return _session_dict(session, db)
 
 
+@router.delete("/sessions/{session_id}/feedback")
+def delete_feedback(
+    session_id: UUID,
+    _: Profile = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    session = db.query(LessonSession).filter(LessonSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session.manager_feedback = ""
+    session.manager_feedback_at = None
+    session.manager_id = None
+    db.query(Notification).filter(
+        Notification.session_id == session.id,
+        Notification.type == "manager_feedback",
+    ).delete(synchronize_session=False)
+    db.commit()
+    db.refresh(session)
+    return _session_dict(session, db)
+
+
 @router.get("/notifications")
 def list_notifications(profile: Profile = Depends(get_current_profile), db: Session = Depends(get_db)):
     rows = (

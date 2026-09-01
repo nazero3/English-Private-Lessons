@@ -295,6 +295,10 @@ export const httpApi = {
     })
   },
 
+  async deleteManagerFeedback(profile, sessionId) {
+    return request(`/api/sessions/${sessionId}/feedback`, { method: 'DELETE' })
+  },
+
   async listSessions(profile) {
     return request('/api/sessions')
   },

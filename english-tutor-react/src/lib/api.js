@@ -327,6 +327,26 @@ const supabaseApi = {
     return session
   },
 
+  async deleteManagerFeedback(profile, sessionId) {
+    const { data: session, error } = await supabase
+      .from('lesson_sessions')
+      .update({
+        manager_feedback: '',
+        manager_feedback_at: null,
+        manager_id: null,
+      })
+      .eq('id', sessionId)
+      .select('*, lesson:lessons(*, course:courses(*)), teacher:profiles(*)')
+      .single()
+    if (error) throw error
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('type', 'manager_feedback')
+    return session
+  },
+
   async getMyStudentPortal() {
     throw new Error('Student portal requires the FastAPI backend')
   },
