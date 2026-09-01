@@ -2,22 +2,19 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
-from ..database import get_db
+from ..database import engine, get_db
 from ..deps import get_current_profile, require_staff
 from ..models import (
     AppRole,
     Course,
-    CreditLedger,
     Lesson,
     LessonSession,
-    Notification,
-    ParentStudent,
     Profile,
-    PublicSpotlight,
     Student,
     StudentScore,
     User,
@@ -383,62 +380,76 @@ def update_student(
     return _student_dict(student, db)
 
 
+def _quote_ident(name: str) -> str:
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _run_sql(conn, sql: str, params: dict | None = None) -> None:
+    nested = conn.begin_nested()
+    try:
+        conn.execute(text(sql), params or {})
+        nested.commit()
+    except Exception:
+        nested.rollback()
+
+
 @router.delete("/students/{student_id}")
 def delete_student(student_id: UUID, profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
-    from ..seed import _ensure_student_schema
-
-    _ensure_student_schema(db)
     student = _get_managed_student(db, profile, student_id)
     user_id = student.user_id
-    sid = student.id
-    db.query(StudentScore).filter(StudentScore.student_id == sid).delete(synchronize_session=False)
-    db.query(ParentStudent).filter(ParentStudent.student_id == sid).delete(synchronize_session=False)
-    db.query(PublicSpotlight).filter(PublicSpotlight.student_id == sid).delete(synchronize_session=False)
-    db.query(LessonSession).filter(LessonSession.student_id == sid).update(
-        {LessonSession.student_id: None},
-        synchronize_session=False,
-    )
-    db.query(CreditLedger).filter(CreditLedger.student_id == sid).update(
-        {CreditLedger.student_id: None},
-        synchronize_session=False,
-    )
-    student.user_id = None
+    db.expunge_all()
+    params = {"sid": student_id, "uid": user_id}
+    keep_hours = {"lesson_sessions", "credit_ledger"}
     try:
-        db.flush()
-        db.delete(student)
-        db.flush()
-        if user_id:
-            db.query(Notification).filter(Notification.user_id == user_id).delete(synchronize_session=False)
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                db.delete(user)
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        from ..seed import _ensure_student_schema
-
-        _ensure_student_schema(db)
-        student = db.query(Student).filter(Student.id == student_id).first()
-        if not student:
-            return {"id": str(student_id)}
-        try:
-            student.user_id = None
-            db.query(LessonSession).filter(LessonSession.student_id == student.id).update(
-                {LessonSession.student_id: None},
-                synchronize_session=False,
-            )
-            db.delete(student)
+        with engine.begin() as conn:
+            for sql in (
+                "ALTER TABLE lesson_sessions ALTER COLUMN student_id DROP NOT NULL",
+                "ALTER TABLE credit_ledger ALTER COLUMN student_id DROP NOT NULL",
+                "ALTER TABLE public_spotlights ALTER COLUMN student_id DROP NOT NULL",
+                "ALTER TABLE students ALTER COLUMN user_id DROP NOT NULL",
+            ):
+                _run_sql(conn, sql)
+            for sql in (
+                "DELETE FROM student_scores WHERE student_id = :sid",
+                "DELETE FROM parent_students WHERE student_id = :sid",
+                "DELETE FROM public_spotlights WHERE student_id = :sid",
+                "UPDATE lesson_sessions SET student_id = NULL WHERE student_id = :sid",
+                "UPDATE credit_ledger SET student_id = NULL WHERE student_id = :sid",
+                "UPDATE students SET user_id = NULL WHERE id = :sid",
+            ):
+                _run_sql(conn, sql, params)
+            fks = conn.execute(
+                text(
+                    """
+                    SELECT rel.relname AS table_name, att.attname AS column_name, att.attnotnull AS not_null
+                    FROM pg_constraint c
+                    JOIN pg_class rel ON rel.oid = c.conrelid
+                    JOIN pg_namespace n ON n.oid = rel.relnamespace
+                    JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS cols(attnum, ord) ON true
+                    JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = cols.attnum
+                    WHERE c.contype = 'f'
+                      AND c.confrelid = 'students'::regclass
+                      AND n.nspname = 'public'
+                    """
+                )
+            ).all()
+            for table, column, not_null in fks:
+                if table == "students":
+                    continue
+                tbl = _quote_ident(table)
+                col = _quote_ident(column)
+                if table in keep_hours or not not_null:
+                    _run_sql(conn, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :sid", params)
+                else:
+                    _run_sql(conn, f"DELETE FROM {tbl} WHERE {col} = :sid", params)
             if user_id:
-                user = db.query(User).filter(User.id == user_id).first()
-                if user:
-                    db.delete(user)
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail="This student still has linked records that could not be cleared.",
-            ) from None
+                _run_sql(conn, "DELETE FROM notifications WHERE user_id = :uid", params)
+            conn.execute(text("DELETE FROM students WHERE id = :sid"), {"sid": student_id})
+            if user_id:
+                conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
+    except Exception as exc:
+        orig = getattr(exc, "orig", None) or exc
+        raise HTTPException(status_code=409, detail=f"Could not delete this student: {orig}") from None
     return {"id": str(student_id)}
 
 
