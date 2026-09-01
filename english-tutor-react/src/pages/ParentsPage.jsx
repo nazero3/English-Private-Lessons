@@ -77,7 +77,7 @@ export default function ParentsPage() {
 
   return (
     <div>
-      <p className="muted">
+      <p className="crumb">
         <Link to={back}>← Back</Link>
       </p>
       <header className="teacher-dash__hero">
@@ -89,21 +89,39 @@ export default function ParentsPage() {
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
 
-      <div className="actions" style={{ marginBottom: '1rem' }}>
-        <button type="button" className={`btn ${tab === 'families' ? '' : 'secondary'}`} onClick={() => setTab('families')}>
+      <nav className="manager-tabs" role="tablist" aria-label="Family sections">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'families'}
+          className={`manager-tabs__btn ${tab === 'families' ? 'is-active' : ''}`}
+          onClick={() => setTab('families')}
+        >
           Families
         </button>
         {isManager ? (
           <>
-            <button type="button" className={`btn ${tab === 'pay' ? '' : 'secondary'}`} onClick={() => setTab('pay')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'pay'}
+              className={`manager-tabs__btn ${tab === 'pay' ? 'is-active' : ''}`}
+              onClick={() => setTab('pay')}
+            >
               Payments
             </button>
-            <button type="button" className={`btn ${tab === 'prizes' ? '' : 'secondary'}`} onClick={() => setTab('prizes')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'prizes'}
+              className={`manager-tabs__btn ${tab === 'prizes' ? 'is-active' : ''}`}
+              onClick={() => setTab('prizes')}
+            >
               Prize requests
             </button>
           </>
         ) : null}
-      </div>
+      </nav>
 
       {tab === 'families' ? (
         <>
@@ -184,7 +202,7 @@ export default function ParentsPage() {
                       <td>{row.wallet?.membership?.label_ar || '—'}</td>
                       <td>{row.subscription?.status || '—'}</td>
                       <td>
-                        <button type="button" className="btn ghost" onClick={() => setSelected(row)}>
+                        <button type="button" className="table-link" onClick={() => setSelected(row)}>
                           Open
                         </button>
                       </td>

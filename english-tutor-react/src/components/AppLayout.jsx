@@ -5,6 +5,10 @@ import { useAuth } from '../lib/AuthContext'
 import { coursebookSubjectFromPath } from '../lib/coursebookRoutes'
 import { homePath, canAccessCoursebookGrade, canAccessPrivateLessons } from '../lib/permissions'
 
+function navClass({ isActive }) {
+  return `btn secondary${isActive ? ' is-nav-on' : ''}`
+}
+
 export function RequireAuth({ role, roles }) {
   const { user, profile, loading } = useAuth()
   const location = useLocation()
@@ -229,28 +233,16 @@ export function AppLayout() {
           <div className="topbar-nav">
             {profile?.role === 'manager' ? (
               <>
-                <NavLink
-                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
-                  to="/manager/students"
-                >
+                <NavLink className={navClass} to="/manager/students">
                   Students
                 </NavLink>
-                <NavLink
-                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
-                  to="/manager/parents"
-                >
+                <NavLink className={navClass} to="/manager/parents">
                   Families
                 </NavLink>
-                <NavLink
-                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
-                  to="/manager/sessions"
-                >
+                <NavLink className={navClass} to="/manager/sessions">
                   Sessions
                 </NavLink>
-                <NavLink
-                  className={({ isActive }) => `btn${isActive ? '' : ' secondary'}`}
-                  to="/manager/hours"
-                >
+                <NavLink className={navClass} to="/manager/hours">
                   Hours
                 </NavLink>
               </>
@@ -258,23 +250,13 @@ export function AppLayout() {
 
             {profile?.role === 'operations' ? (
               <>
-                <NavLink
-                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
-                  to="/operations/families"
-                >
+                <NavLink className={navClass} to="/operations/families">
                   Families
                 </NavLink>
-                <NavLink
-                  className={({ isActive }) => `btn${isActive ? '' : ' secondary'}`}
-                  to="/operations"
-                  end
-                >
+                <NavLink className={navClass} to="/operations" end>
                   Hours
                 </NavLink>
-                <NavLink
-                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
-                  to="/operations/sessions"
-                >
+                <NavLink className={navClass} to="/operations/sessions">
                   Sessions
                 </NavLink>
               </>
@@ -282,22 +264,13 @@ export function AppLayout() {
 
             {profile?.role === 'teacher' ? (
               <>
-                <NavLink
-                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
-                  to="/teacher/students"
-                >
+                <NavLink className={navClass} to="/teacher/students">
                   Students
                 </NavLink>
-                <NavLink
-                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
-                  to="/teacher/parents"
-                >
+                <NavLink className={navClass} to="/teacher/parents">
                   Families
                 </NavLink>
-                <NavLink
-                  className={({ isActive }) => `btn${isActive ? '' : ' secondary'}`}
-                  to="/teacher/sessions"
-                >
+                <NavLink className={navClass} to="/teacher/sessions">
                   Classes
                 </NavLink>
               </>

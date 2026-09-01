@@ -138,16 +138,18 @@ export default function HoursPage() {
 
   return (
     <div>
-      <p className="muted">
+      <p className="crumb">
         <Link to={home}>← Back</Link>
       </p>
-      <div className="topbar" style={{ border: 'none', paddingBottom: 0 }}>
-        <h1 style={{ margin: 0 }}>Teacher hours</h1>
-        <button type="button" className="btn secondary" onClick={exportCsv} disabled={!summary?.teachers?.length}>
+      <header className="teacher-dash__hero">
+        <div>
+          <h1>Teacher hours</h1>
+          <p className="muted">Hours logged on class sessions this month. Check-mode scores are not counted.</p>
+        </div>
+        <button type="button" className="btn secondary compact" onClick={exportCsv} disabled={!summary?.teachers?.length}>
           Export CSV
         </button>
-      </div>
-      <p className="muted">Hours logged on class sessions this month. Check-mode scores are not counted.</p>
+      </header>
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
 
@@ -199,7 +201,7 @@ export default function HoursPage() {
                   <td>
                     <button
                       type="button"
-                      className="btn ghost"
+                      className="table-link"
                       onClick={() =>
                         setSelectedTeacherId((id) => (id === row.teacher_id ? null : row.teacher_id))
                       }
@@ -213,7 +215,7 @@ export default function HoursPage() {
                     <td>
                       <button
                         type="button"
-                        className="btn ghost"
+                        className="btn text-danger"
                         disabled={!hoursForTeacher(row.teacher_id).length}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -233,14 +235,14 @@ export default function HoursPage() {
 
       {selectedTeacher ? (
         <section className="panel">
-          <div className="topbar" style={{ border: 'none', padding: 0, marginBottom: '0.75rem' }}>
+          <div className="teacher-dash__hero" style={{ marginBottom: '0.75rem' }}>
             <h2 style={{ margin: 0 }}>
               {selectedTeacher.teacher?.full_name} · {month}
             </h2>
             {isManager && teacherSessions.length ? (
               <button
                 type="button"
-                className="btn ghost"
+                className="btn text-danger"
                 onClick={() =>
                   deleteTeacherMonthHours(selectedTeacher.teacher_id, selectedTeacher.teacher?.full_name)
                 }
@@ -274,7 +276,7 @@ export default function HoursPage() {
                     <td>{formatHours(s.hours)}</td>
                     {isManager ? (
                       <td>
-                        <button type="button" className="btn ghost" onClick={() => deleteHour(s)}>
+                        <button type="button" className="btn text-danger" onClick={() => deleteHour(s)}>
                           Delete
                         </button>
                       </td>

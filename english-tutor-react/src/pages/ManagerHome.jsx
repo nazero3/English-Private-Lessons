@@ -220,16 +220,6 @@ export default function ManagerHome() {
   const editingTeacher = teachers.find((t) => t.id === editingTeacherId) || null
   const editingOps = operations.find((p) => p.id === editingOpsId) || null
 
-  const countAccess = (t) => {
-    const packs = courses.filter((c) => isAssigned(t.id, c.id)).length
-    const extras =
-      (t.can_access_private_lessons ? 1 : 0) +
-      (t.can_access_math_grade9 ? 1 : 0) +
-      (t.can_access_math_grade12 ? 1 : 0) +
-      (t.can_access_physics_grade12 ? 1 : 0)
-    return packs + extras
-  }
-
   return (
     <div className="manager-dash">
       <header className="manager-dash__hero">
@@ -295,7 +285,6 @@ export default function ManagerHome() {
                       <h3>{t.full_name}</h3>
                       <p className="muted">{t.email || '—'}</p>
                     </div>
-                    <span className="badge">{countAccess(t)} on</span>
                   </header>
 
                   <div className="access-chip-row">
@@ -412,14 +401,14 @@ export default function ManagerHome() {
                       <div className="actions">
                         <button
                           type="button"
-                          className="btn secondary"
+                          className="btn secondary compact"
                           onClick={() => startEdit(t)}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="btn ghost"
+                          className="btn text-danger"
                           onClick={() => deleteTeacher(t)}
                         >
                           Delete
@@ -538,10 +527,10 @@ export default function ManagerHome() {
                         <div className="muted">{p.email || '—'}</div>
                       </div>
                       <div className="actions">
-                        <button type="button" className="btn secondary" onClick={() => startEditOps(p)}>
+                        <button type="button" className="btn secondary compact" onClick={() => startEditOps(p)}>
                           Edit
                         </button>
-                        <button type="button" className="btn ghost" onClick={() => deleteOperations(p)}>
+                        <button type="button" className="btn text-danger" onClick={() => deleteOperations(p)}>
                           Delete
                         </button>
                       </div>

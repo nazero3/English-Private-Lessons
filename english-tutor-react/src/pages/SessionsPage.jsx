@@ -111,27 +111,26 @@ export default function SessionsPage() {
 
   return (
     <div>
-      <p className="muted">
+      <p className="crumb">
         <Link to={home}>← Back</Link>
       </p>
-      <div className="topbar" style={{ border: 'none', paddingBottom: 0 }}>
+      <header className="teacher-dash__hero">
         <div>
-          <h1 style={{ margin: 0 }}>{canSeeAll ? 'All classes' : 'Your classes'}</h1>
-          {canLogSession ? (
-            <p className="muted" style={{ margin: '0.35rem 0 0' }}>
-              This month · {formatHours(monthHours)} hours
-            </p>
-          ) : null}
+          <h1>{canSeeAll ? 'All classes' : 'Your classes'}</h1>
+          <p className="muted">
+            {canLogSession
+              ? `This month · ${formatHours(monthHours)} hours`
+              : isManager
+                ? 'Review teacher classes and leave feedback.'
+                : isOperations
+                  ? 'Every logged class with hours. Open Hours for monthly totals.'
+                  : ''}
+          </p>
         </div>
-        <button type="button" className="btn secondary" onClick={exportCsv} disabled={!sessions.length}>
+        <button type="button" className="btn secondary compact" onClick={exportCsv} disabled={!sessions.length}>
           Export CSV
         </button>
-      </div>
-      {isManager ? (
-        <p className="muted">Review teacher classes and leave feedback.</p>
-      ) : isOperations ? (
-        <p className="muted">Every logged class with hours. Open Hours for monthly totals.</p>
-      ) : null}
+      </header>
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
 
@@ -190,7 +189,7 @@ export default function SessionsPage() {
                     <td>
                       <button
                         type="button"
-                        className="btn ghost"
+                        className="table-link"
                         onClick={() => (s.id === editingId ? stopEdit() : startEdit(s.id))}
                       >
                         {s.id === editingId ? 'Cancel' : 'Edit'}
@@ -218,8 +217,9 @@ export default function SessionsPage() {
                       {s.hours != null ? ` · ${formatHours(s.hours)}h` : ''}
                     </div>
                   </div>
-                  <div className="badge">
-                    {s.course?.title || 'Course'} · U{s.lesson?.unit_number}
+                  <div className="muted" style={{ fontSize: '0.88rem' }}>
+                    {s.course?.title || 'Course'}
+                    {s.lesson?.unit_number != null ? ` · U${s.lesson.unit_number}` : ''}
                   </div>
                 </div>
 

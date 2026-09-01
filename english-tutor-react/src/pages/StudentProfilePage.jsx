@@ -196,7 +196,7 @@ export default function StudentProfilePage() {
 
   return (
     <div>
-      <p className="muted">
+      <p className="crumb">
         <Link to={base}>← Students</Link>
       </p>
       <header className="teacher-dash__hero">
@@ -204,16 +204,9 @@ export default function StudentProfilePage() {
           <h1>{student.full_name}</h1>
           <p className="muted">
             {student.email || 'No login yet'}
-            {student.teacher?.full_name ? ` · ${student.teacher.full_name}` : isManager ? ' · No teacher' : ''}
+            {student.teacher?.full_name ? ` · ${student.teacher.full_name}` : isManager ? ' · No teacher yet' : ''}
           </p>
         </div>
-        <span className={`badge${!student.teacher_id && isManager ? ' is-warn' : ''}`}>
-          {!student.teacher_id && isManager
-            ? 'Needs a teacher'
-            : student.has_login
-              ? 'Can sign in'
-              : 'No login'}
-        </span>
       </header>
 
       {error ? <p className="error">{error}</p> : null}
@@ -295,7 +288,7 @@ export default function StudentProfilePage() {
             <button className="btn" type="submit">
               Save account
             </button>
-            <button type="button" className="btn ghost" onClick={removeStudent} disabled={deleting}>
+            <button type="button" className="btn text-danger" onClick={removeStudent} disabled={deleting}>
               {deleting ? 'Deleting…' : 'Delete student'}
             </button>
           </div>
@@ -416,7 +409,7 @@ export default function StudentProfilePage() {
                   <div className="actions">
                     <button
                       type="button"
-                      className="btn ghost"
+                      className="table-link"
                       onClick={() =>
                         setEditingSession(
                           editing
@@ -438,7 +431,7 @@ export default function StudentProfilePage() {
                     </button>
                     <button
                       type="button"
-                      className="btn ghost"
+                      className="btn text-danger"
                       onClick={() =>
                         run(() => api.deleteSession(s.id), 'Lesson removed.')
                       }
@@ -620,7 +613,7 @@ export default function StudentProfilePage() {
                   <td>
                     <button
                       type="button"
-                      className="btn ghost"
+                      className="btn text-danger"
                       onClick={() =>
                         run(() => api.deleteStudentScore(studentId, row.id), 'Score removed.')
                       }

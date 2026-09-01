@@ -98,14 +98,16 @@ export default function StudentsPage() {
 
   return (
     <div>
-      <p className="muted">
+      <p className="crumb">
         <Link to={back}>← Back</Link>
       </p>
       <header className="teacher-dash__hero">
         <div>
           <h1>{isManager ? 'Students' : 'My students'}</h1>
           <p className="muted">
-            Create a login so each student can see homework, notes, and test scores.
+            {isManager
+              ? 'Tap a name for notes and scores. Assign a teacher from the list.'
+              : 'Tap a name for notes, homework, and scores.'}
           </p>
         </div>
       </header>
@@ -114,8 +116,7 @@ export default function StudentsPage() {
       {message ? <p className="success">{message}</p> : null}
       {isManager && needsTeacher.length ? (
         <p className="notice">
-          {needsTeacher.length} student{needsTeacher.length === 1 ? '' : 's'} need a teacher
-          assigned.
+          {needsTeacher.length} student{needsTeacher.length === 1 ? '' : 's'} still need a teacher.
         </p>
       ) : null}
 
@@ -140,7 +141,7 @@ export default function StudentsPage() {
                   value={form.teacher_id}
                   onChange={(e) => setForm({ ...form, teacher_id: e.target.value })}
                 >
-                  <option value="">No teacher yet</option>
+                  <option value="">Assign later</option>
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.full_name}
@@ -150,13 +151,13 @@ export default function StudentsPage() {
               </div>
             ) : (
               <div className="field">
-                <label htmlFor="stu-email">Email (for login)</label>
+                <label htmlFor="stu-email">Email</label>
                 <input
                   id="stu-email"
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="Optional until you give them a login"
+                  placeholder="Optional"
                 />
               </div>
             )}
@@ -164,13 +165,13 @@ export default function StudentsPage() {
           <div className="grid-2">
             {isManager ? (
               <div className="field">
-                <label htmlFor="stu-email-mgr">Email (for login)</label>
+                <label htmlFor="stu-email-mgr">Email</label>
                 <input
                   id="stu-email-mgr"
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="Optional until you give them a login"
+                  placeholder="Optional"
                 />
               </div>
             ) : null}
@@ -182,7 +183,7 @@ export default function StudentsPage() {
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 minLength={6}
-                placeholder="Needed with email to create a login"
+                placeholder="With email, to let them sign in"
               />
             </div>
           </div>
@@ -195,39 +196,28 @@ export default function StudentsPage() {
       <section className="panel">
         <h2>Roster ({students.length})</h2>
         {!students.length ? (
-          <p className="muted">
-            No students in the roster. Add them above. If you deleted a teacher while students were
-            still assigned, those students were removed and need to be added again.
-          </p>
+          <p className="muted">No students yet. Add one above.</p>
         ) : (
           <ul className="teacher-account-list">
             {students.map((s) => (
-              <li key={s.id}>
-                <div>
+              <li key={s.id} className="person-row">
+                <Link className="person-row__main" to={`${base}/${s.id}`}>
                   <strong>{s.full_name}</strong>
-                  <div className="muted">
+                  <span className="muted">
                     {s.email || 'No login yet'}
-                    {isManager
-                      ? s.teacher?.full_name
-                        ? ` · ${s.teacher.full_name}`
-                        : ' · No teacher'
-                      : ''}
-                  </div>
-                </div>
-                <div className="actions">
-                  {!s.teacher_id && isManager ? (
-                    <span className="badge is-warn">Needs a teacher</span>
-                  ) : (
-                    <span className="badge">{s.has_login ? 'Can sign in' : 'No login'}</span>
-                  )}
+                    {isManager && !s.teacher_id ? ' · Needs a teacher' : ''}
+                  </span>
+                </Link>
+                <div className="person-row__tools">
                   {isManager ? (
                     <select
-                      className="roster-teacher-select"
+                      className={`person-row__select${s.teacher_id ? '' : ' is-empty'}`}
                       value={s.teacher_id || ''}
                       aria-label={`Teacher for ${s.full_name}`}
+                      disabled={Boolean(busyId)}
                       onChange={(e) => assignTeacher(s.id, e.target.value)}
                     >
-                      <option value="">No teacher</option>
+                      <option value="">{s.teacher_id ? 'Unassigned' : 'Assign teacher'}</option>
                       {teachers.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.full_name}
@@ -235,12 +225,9 @@ export default function StudentsPage() {
                       ))}
                     </select>
                   ) : null}
-                  <Link className="btn secondary" to={`${base}/${s.id}`}>
-                    Open profile
-                  </Link>
                   <button
                     type="button"
-                    className="btn ghost"
+                    className="btn text-danger"
                     aria-label={`Delete ${s.full_name}`}
                     disabled={Boolean(busyId)}
                     onClick={() => removeStudent(s)}
