@@ -1,4 +1,4 @@
-# Lesson Sheets Platform
+# Kinz Teacher Platform
 
 Hybrid private-lesson app: **Teacher Brief**, **Worksheet**, **3-lesson Review Quiz**, and **Homework** — printable A4 + on-screen check mode.
 

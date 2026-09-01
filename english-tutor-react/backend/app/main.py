@@ -14,7 +14,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Lesson Sheets API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Kinz Teacher Platform API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

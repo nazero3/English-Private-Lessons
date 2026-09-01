@@ -11,6 +11,20 @@ function formatHours(n) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+function sessionCourseTitle(s) {
+  return s.course?.title || s.course_title || '—'
+}
+
+function sessionUnitLabel(s) {
+  const number = s.lesson?.unit_number ?? s.unit_number
+  const theme = (s.lesson?.theme || s.unit_label || '').trim()
+  const unit = number != null ? `Unit ${number}` : ''
+  if (unit && theme && theme !== 'Lesson') return `${unit} · ${theme}`
+  if (unit) return unit
+  if (theme) return theme
+  return '—'
+}
+
 export default function SessionsPage() {
   const { profile } = useAuth()
   const isManager = profile?.role === 'manager'
@@ -381,26 +395,34 @@ export default function SessionsPage() {
                 id={`session-${s.id}`}
                 className={`session-card${s.id === focusSessionId ? ' is-selected' : ''}`}
               >
-                <div className="session-card__head">
+                <dl className="session-facts">
                   <div>
-                    <strong>{s.student_name}</strong>
-                    {canSeeAll ? (
-                      <div className="session-card__teacher">
-                        {s.teacher?.full_name || 'No teacher assigned'}
-                      </div>
-                    ) : null}
-                    <div className="muted" style={{ fontSize: '0.88rem' }}>
-                      {new Date(s.session_date || s.created_at).toLocaleString()}
-                      {s.hours != null ? ` · ${formatHours(s.hours)}h` : ''}
+                    <dt>Student</dt>
+                    <dd>{s.student_name || '—'}</dd>
+                  </div>
+                  {canSeeAll ? (
+                    <div>
+                      <dt>Teacher</dt>
+                      <dd>{s.teacher?.full_name || 'Not assigned'}</dd>
                     </div>
+                  ) : null}
+                  <div>
+                    <dt>Date</dt>
+                    <dd>{new Date(s.session_date || s.created_at).toLocaleString()}</dd>
                   </div>
-                  <div className="muted" style={{ fontSize: '0.88rem' }}>
-                    {s.course?.title || 'Course'}
-                    {s.lesson?.unit_number != null ? ` · U${s.lesson.unit_number}` : ''}
+                  <div>
+                    <dt>Hours</dt>
+                    <dd>{s.hours != null ? `${formatHours(s.hours)}h` : '—'}</dd>
                   </div>
-                </div>
-
-                <p className="session-card__lesson">{s.lesson?.theme || 'Lesson'}</p>
+                  <div>
+                    <dt>Course</dt>
+                    <dd>{sessionCourseTitle(s)}</dd>
+                  </div>
+                  <div>
+                    <dt>Unit</dt>
+                    <dd>{sessionUnitLabel(s)}</dd>
+                  </div>
+                </dl>
 
                 {s.notes ? (
                   <div className="session-card__block">
@@ -411,21 +433,27 @@ export default function SessionsPage() {
 
                 {s.homework_assigned ? (
                   <div className="session-card__block">
-                    <span className="muted">Homework</span>
+                    <span className="muted">Homework assigned</span>
                     <p>{s.homework_assigned}</p>
                   </div>
                 ) : null}
 
-                {(s.worksheet_score != null || s.quiz_score != null || s.homework_score != null) && (
-                  <p className="muted" style={{ fontSize: '0.88rem' }}>
-                    Scores:
-                    {s.worksheet_score != null ? ` WS ${s.worksheet_score}/${s.worksheet_total}` : ''}
-                    {s.quiz_score != null ? ` · Q ${s.quiz_score}/${s.quiz_total}` : ''}
-                    {s.homework_score != null
-                      ? ` · HW ${s.homework_score}/${s.homework_total}`
-                      : ''}
-                  </p>
-                )}
+                {(s.worksheet_score != null || s.quiz_score != null || s.homework_score != null) ? (
+                  <div className="session-card__block">
+                    <span className="muted">Scores</span>
+                    <p>
+                      {s.worksheet_score != null
+                        ? `Worksheet ${s.worksheet_score}/${s.worksheet_total}`
+                        : null}
+                      {s.quiz_score != null
+                        ? `${s.worksheet_score != null ? ' · ' : ''}Quiz ${s.quiz_score}/${s.quiz_total}`
+                        : null}
+                      {s.homework_score != null
+                        ? `${s.worksheet_score != null || s.quiz_score != null ? ' · ' : ''}Homework ${s.homework_score}/${s.homework_total}`
+                        : null}
+                    </p>
+                  </div>
+                ) : null}
 
                 {s.manager_feedback ? (
                   <div className="session-card__feedback">

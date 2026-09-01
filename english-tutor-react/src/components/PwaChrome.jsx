@@ -78,7 +78,7 @@ export default function PwaChrome() {
 
       {needRefresh ? (
         <div className="pwa-banner pwa-banner--update no-print" role="status">
-          <span>A new version of Lesson Sheets is ready.</span>
+          <span>A new version of Kinz Teacher Platform is ready.</span>
           <button type="button" className="btn" onClick={() => updateServiceWorker(true)}>
             Refresh
           </button>
@@ -86,12 +86,12 @@ export default function PwaChrome() {
       ) : null}
 
       {showInstall ? (
-        <div className="pwa-install no-print" role="dialog" aria-label="Install Lesson Sheets">
+        <div className="pwa-install no-print" role="dialog" aria-label="Install Kinz Teacher Platform">
           <div>
             <strong>Add to your phone</strong>
             <p className="muted">
               {installEvent
-                ? 'Install Lesson Sheets so it opens like an app from your home screen.'
+                ? 'Install Kinz Teacher Platform so it opens like an app from your home screen.'
                 : 'On iPhone: tap Share, then Add to Home Screen.'}
             </p>
           </div>

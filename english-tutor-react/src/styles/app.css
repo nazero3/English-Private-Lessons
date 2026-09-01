@@ -431,6 +431,25 @@ h3,
   background: #fff;
 }
 
+.session-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 1.35rem;
+  margin: 0 0 0.35rem;
+}
+
+.session-facts dt {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.session-facts dd {
+  margin: 0.12rem 0 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
 .session-card__head {
   display: flex;
   justify-content: space-between;
@@ -443,9 +462,19 @@ h3,
   font-weight: 600;
 }
 
+.session-card__block {
+  margin-top: 0.7rem;
+}
+
 .session-card__block p,
 .session-card__feedback p {
   margin: 0.2rem 0 0;
+}
+
+@media (max-width: 640px) {
+  .session-facts {
+    grid-template-columns: 1fr;
+  }
 }
 
 .session-card__feedback-head {

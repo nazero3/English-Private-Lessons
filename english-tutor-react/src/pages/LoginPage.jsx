@@ -32,7 +32,7 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>Lesson Sheets</h1>
+        <h1>Kinz Teacher Platform</h1>
         <p className="muted">Sign in to your lesson workspace.</p>
         <form onSubmit={onSubmit}>
           <div className="field">

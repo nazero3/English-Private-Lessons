@@ -251,7 +251,7 @@ export function AppLayout() {
       <header className="topbar no-print">
         <div>
           <Link className="brand" to={home}>
-            Lesson Sheets
+            Kinz Teacher Platform
           </Link>
           <div className="muted" style={{ fontSize: '0.85rem' }}>
             {profile?.full_name}

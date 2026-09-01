@@ -11,9 +11,9 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
-        name: 'kinz-lessons',
-        short_name: 'kinz-lessons',
-        description: 'Lesson workspace for teachers, students, and families',
+        name: 'Kinz Teacher Platform',
+        short_name: 'Kinz Teacher',
+        description: 'Kinz Teacher Platform — lessons, students, and families',
         theme_color: '#1a2656',
         background_color: '#fffaf0',
         display: 'standalone',
