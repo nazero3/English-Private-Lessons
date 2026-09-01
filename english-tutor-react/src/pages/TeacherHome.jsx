@@ -68,6 +68,20 @@ export default function TeacherHome() {
 
   const recent = sessions.slice(0, 4)
 
+  const removeClass = async (session) => {
+    const when = new Date(session.session_date || session.created_at).toLocaleDateString()
+    const ok = window.confirm(
+      `Remove ${session.student_name}'s class on ${when}? Use this if it was cancelled or postponed.`,
+    )
+    if (!ok) return
+    try {
+      await api.deleteSession(session.id)
+      await load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   return (
     <div className="teacher-dash">
       <header className="teacher-dash__hero">
@@ -111,6 +125,9 @@ export default function TeacherHome() {
                 <Link className="table-link" to={`/teacher/sessions?edit=${s.id}`}>
                   Edit
                 </Link>
+                <button type="button" className="btn text-danger" onClick={() => removeClass(s)}>
+                  Delete
+                </button>
               </li>
             ))}
           </ul>

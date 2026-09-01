@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
@@ -215,6 +216,56 @@ def update_parent(
         user.password_hash = hash_password(body.pin.strip())
     db.commit()
     return _parent_dict(db, profile)
+
+
+def _sql(db: Session, sql: str, params: dict | None = None) -> None:
+    nested = db.begin_nested()
+    try:
+        db.execute(text(sql), params or {})
+        nested.commit()
+    except Exception:
+        nested.rollback()
+
+
+def _db_error_detail(exc: Exception) -> str:
+    orig = getattr(exc, "orig", None) or exc
+    msg = str(orig).split("\n", 1)[0]
+    lowered = msg.lower()
+    if "lock timeout" in lowered or "statement timeout" in lowered:
+        return "Could not delete this family because the database was busy. Try again."
+    return f"Could not delete this family: {msg}"
+
+
+@router.delete("/parents/{parent_id}")
+def delete_parent(parent_id: UUID, staff: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+    profile = _get_parent_profile(db, parent_id)
+    if not _staff_can_see_parent(db, staff, profile):
+        raise HTTPException(status_code=403, detail="Not your family")
+    params = {"uid": profile.id}
+    if db.in_transaction():
+        db.rollback()
+    try:
+        with db.begin():
+            db.connection().exec_driver_sql("SET LOCAL lock_timeout = '4s'")
+            db.connection().exec_driver_sql("SET LOCAL statement_timeout = '12s'")
+            for sql in (
+                "DELETE FROM parent_students WHERE parent_id = :uid",
+                "DELETE FROM public_spotlights WHERE parent_id = :uid",
+                "DELETE FROM prize_redemptions WHERE parent_id = :uid",
+                "DELETE FROM payment_intents WHERE parent_id = :uid",
+                "DELETE FROM subscriptions WHERE parent_id = :uid",
+                "DELETE FROM memberships WHERE parent_id = :uid",
+                "DELETE FROM credit_ledger WHERE parent_id = :uid",
+                "DELETE FROM notifications WHERE user_id = :uid",
+                "UPDATE credit_ledger SET created_by = NULL WHERE created_by = :uid",
+                "UPDATE payment_intents SET confirmed_by = NULL WHERE confirmed_by = :uid",
+                "UPDATE prize_redemptions SET fulfilled_by = NULL WHERE fulfilled_by = :uid",
+            ):
+                _sql(db, sql, params)
+            db.execute(text("DELETE FROM users WHERE id = :uid"), params)
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail=_db_error_detail(exc)) from None
+    return {"id": str(parent_id)}
 
 
 @router.post("/parents/{parent_id}/students")

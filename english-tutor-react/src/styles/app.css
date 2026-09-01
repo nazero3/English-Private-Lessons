@@ -462,6 +462,39 @@ h3,
   border-top: 1px solid var(--line);
 }
 
+.session-card__teacher {
+  margin-top: 0.15rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.session-card.is-selected {
+  outline: 2px solid var(--highlight);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.sessions-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.sessions-toolbar h2 {
+  margin: 0;
+}
+
+.sessions-toolbar__filter {
+  margin-bottom: 0;
+  min-width: 12rem;
+}
+
+.table .session-card__feedback {
+  margin-top: 0.45rem;
+}
+
 .notify-wrap {
   position: relative;
 }
@@ -523,9 +556,34 @@ h3,
   border-radius: 8px;
 }
 
+.notify-list li.is-clickable {
+  padding: 0.25rem 0.2rem 0.45rem;
+}
+
 .notify-list p {
   margin: 0.2rem 0;
   font-size: 0.88rem;
+}
+
+.notify-item {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+a.notify-item {
+  padding: 0.4rem 0.35rem 0.15rem;
+  cursor: pointer;
+}
+
+a.notify-item:hover {
+  background: rgba(251, 176, 59, 0.18);
+}
+
+a.notify-item:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 1px;
 }
 
 .notify-item__title {
@@ -538,6 +596,10 @@ h3,
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
+}
+
+.notify-item__read {
+  margin: 0 0.35rem 0.15rem;
 }
 
 .sheet {
@@ -1304,6 +1366,16 @@ h3,
   text-decoration: underline;
 }
 
+.table .hour-chips {
+  flex-wrap: wrap;
+}
+
+.table .hour-chip {
+  min-width: 2.4rem;
+  min-height: 34px;
+  padding: 0.25rem 0.5rem;
+}
+
 .table .btn {
   min-height: 34px;
   padding: 0.25rem 0.55rem;
@@ -1511,7 +1583,7 @@ h3,
 
 .recent-class-list li {
   display: grid;
-  grid-template-columns: 1.2fr 1.6fr auto auto;
+  grid-template-columns: 1.2fr 1.6fr auto auto auto;
   gap: 0.75rem;
   align-items: center;
   padding: 0.75rem 1rem;
@@ -1687,7 +1759,7 @@ h3,
   }
 
   .recent-class-list li {
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
   }
 
   .recent-class-list li .muted {

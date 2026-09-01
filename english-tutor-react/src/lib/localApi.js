@@ -912,8 +912,12 @@ export const localApi = {
     })
   },
 
-  async addManagerFeedback({ sessionId, managerId, feedback }) {
+  async addManagerFeedback(profileOrPayload, payload) {
     return withDb((db) => {
+      const args = payload || profileOrPayload || {}
+      const sessionId = args.sessionId
+      const feedback = args.feedback
+      const managerId = payload ? profileOrPayload?.id : args.managerId
       const session = db.sessions.find((s) => s.id === sessionId)
       if (!session) throw new Error('Session not found')
       const text = String(feedback || '').trim()
@@ -926,9 +930,13 @@ export const localApi = {
       const lesson = db.lessons.find((l) => l.id === session.lesson_id)
       const course = db.courses.find((c) => c.id === lesson?.course_id)
       const manager = db.profiles.find((p) => p.id === managerId)
-      const label = lesson
-        ? `${course?.title || 'Course'} · Unit ${lesson.unit_number}`
-        : 'a lesson'
+      let label = 'a lesson'
+      if (lesson) {
+        label = `${course?.title || 'Course'} · Unit ${lesson.unit_number}`
+      } else if (session.course_title) {
+        label = session.unit_label ? `${session.course_title} · ${session.unit_label}` : session.course_title
+      }
+      const preview = text.length > 160 ? `${text.slice(0, 159).trim()}…` : text
 
       db.notifications.unshift({
         id: uid('ntf'),
@@ -936,7 +944,7 @@ export const localApi = {
         session_id: session.id,
         type: 'manager_feedback',
         title: 'New manager feedback',
-        message: `${manager?.full_name || 'Manager'} left feedback on ${session.student_name}'s session (${label}).`,
+        message: `${manager?.full_name || 'Manager'} left feedback on ${session.student_name}'s session (${label}): ${preview}`,
         read: false,
         created_at: new Date().toISOString(),
       })
@@ -1039,6 +1047,9 @@ export const localApi = {
     throw new Error('Kinz Family parents require the FastAPI backend')
   },
   async updateParent() {
+    throw new Error('Kinz Family parents require the FastAPI backend')
+  },
+  async deleteParent() {
     throw new Error('Kinz Family parents require the FastAPI backend')
   },
   async linkParentStudent() {

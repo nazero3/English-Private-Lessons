@@ -20,6 +20,7 @@ export default function ParentsPage() {
   const [selected, setSelected] = useState(null)
   const [linkStudentId, setLinkStudentId] = useState('')
   const [creditNote, setCreditNote] = useState('دعوة صديق')
+  const [busyId, setBusyId] = useState('')
 
   const load = async () => {
     const [p, s] = await Promise.all([api.listParents(), api.listStudents(profile)])
@@ -73,6 +74,17 @@ export default function ParentsPage() {
       'Parent saved. They sign in with phone + PIN.',
     )
     if (ok) setForm(emptyParent)
+  }
+
+  const removeFamily = async (row) => {
+    const ok = window.confirm(
+      `Delete ${row.full_name}? Their family login and wallet go away. Linked students stay in the roster.`,
+    )
+    if (!ok) return
+    setBusyId(row.id)
+    const done = await run(() => api.deleteParent(row.id), `${row.full_name} was removed.`)
+    setBusyId('')
+    if (done && selected?.id === row.id) setSelected(null)
   }
 
   return (
@@ -202,9 +214,19 @@ export default function ParentsPage() {
                       <td>{row.wallet?.membership?.label_ar || '—'}</td>
                       <td>{row.subscription?.status || '—'}</td>
                       <td>
-                        <button type="button" className="table-link" onClick={() => setSelected(row)}>
-                          Open
-                        </button>
+                        <div className="person-row__tools">
+                          <button type="button" className="table-link" onClick={() => setSelected(row)}>
+                            Open
+                          </button>
+                          <button
+                            type="button"
+                            className="btn text-danger"
+                            disabled={Boolean(busyId)}
+                            onClick={() => removeFamily(row)}
+                          >
+                            {busyId === row.id ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -321,6 +343,16 @@ export default function ParentsPage() {
               <div className="field">
                 <label>Referral note</label>
                 <input value={creditNote} onChange={(e) => setCreditNote(e.target.value)} />
+              </div>
+              <div className="actions">
+                <button
+                  type="button"
+                  className="btn text-danger"
+                  disabled={Boolean(busyId)}
+                  onClick={() => removeFamily(selected)}
+                >
+                  {busyId === selected.id ? 'Deleting…' : 'Delete family'}
+                </button>
               </div>
             </section>
           ) : null}

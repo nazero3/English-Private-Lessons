@@ -315,13 +315,14 @@ const supabaseApi = {
 
     const label = session.lesson
       ? `${session.lesson.course?.title || 'Course'} · Unit ${session.lesson.unit_number}`
-      : 'a lesson'
+      : session.course_title || 'a lesson'
+    const preview = text.length > 160 ? `${text.slice(0, 159).trim()}…` : text
     await supabase.from('notifications').insert({
       user_id: session.teacher_id,
       session_id: session.id,
       type: 'manager_feedback',
       title: 'New manager feedback',
-      message: `${profile.full_name || 'Manager'} left feedback on ${session.student_name}'s session (${label}).`,
+      message: `${profile.full_name || 'Manager'} left feedback on ${session.student_name}'s session (${label}): ${preview}`,
     })
     return session
   },
@@ -420,6 +421,9 @@ const supabaseApi = {
     throw new Error('Kinz Family parents require the FastAPI backend')
   },
   async updateParent() {
+    throw new Error('Kinz Family parents require the FastAPI backend')
+  },
+  async deleteParent() {
     throw new Error('Kinz Family parents require the FastAPI backend')
   },
   async linkParentStudent() {

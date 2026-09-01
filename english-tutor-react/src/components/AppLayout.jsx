@@ -173,6 +173,15 @@ function secondaryLinks(role) {
   return []
 }
 
+function notificationHref(note, role) {
+  if (note?.type === 'unassigned_students') return '/manager/students'
+  if (note?.session_id) {
+    const base = role === 'manager' ? '/manager/sessions' : '/teacher/sessions'
+    return `${base}?session=${encodeURIComponent(note.session_id)}`
+  }
+  return null
+}
+
 export function AppLayout() {
   const { profile, signOut } = useAuth()
   const home = homePath(profile?.role)
@@ -311,26 +320,50 @@ export function AppLayout() {
                     <p className="muted">No notifications yet.</p>
                   ) : (
                     <ul className="notify-list">
-                      {notifications.map((n) => (
-                        <li key={n.id} className={n.read ? '' : 'is-unread'}>
-                          <div className="notify-item__title">{n.title}</div>
-                          <p>{n.message}</p>
-                          <div className="notify-item__meta">
-                            <span className="muted">
-                              {new Date(n.created_at).toLocaleString()}
-                            </span>
+                      {notifications.map((n) => {
+                        const href = notificationHref(n, profile?.role)
+                        const body = (
+                          <>
+                            <div className="notify-item__title">{n.title}</div>
+                            <p>{n.message}</p>
+                            <div className="notify-item__meta">
+                              <span className="muted">
+                                {new Date(n.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                          </>
+                        )
+                        return (
+                          <li
+                            key={n.id}
+                            className={`${n.read ? '' : 'is-unread'}${href ? ' is-clickable' : ''}`}
+                          >
+                            {href ? (
+                              <Link
+                                className="notify-item"
+                                to={href}
+                                onClick={() => {
+                                  setOpenNotes(false)
+                                  if (!n.read) markOne(n.id)
+                                }}
+                              >
+                                {body}
+                              </Link>
+                            ) : (
+                              <div className="notify-item">{body}</div>
+                            )}
                             {!n.read ? (
                               <button
                                 type="button"
-                                className="btn ghost"
+                                className="btn ghost notify-item__read"
                                 onClick={() => markOne(n.id)}
                               >
                                 Mark read
                               </button>
                             ) : null}
-                          </div>
-                        </li>
-                      ))}
+                          </li>
+                        )
+                      })}
                     </ul>
                   )}
                   <Link

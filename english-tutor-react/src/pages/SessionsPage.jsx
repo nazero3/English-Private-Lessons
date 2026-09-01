@@ -24,6 +24,18 @@ export default function SessionsPage() {
   const [feedbackDrafts, setFeedbackDrafts] = useState({})
   const [searchParams, setSearchParams] = useSearchParams()
   const [editingId, setEditingId] = useState(searchParams.get('edit') || '')
+  const focusSessionId = searchParams.get('session') || ''
+  const teacherFilter = searchParams.get('teacher') || 'all'
+
+  const patchParams = (updates) => {
+    const next = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value == null || value === '' || value === 'all') next.delete(key)
+      else next.set(key, value)
+    })
+    setSearchParams(next, { replace: true })
+  }
+  const [busyId, setBusyId] = useState('')
 
   const load = async () => {
     try {
@@ -53,6 +65,24 @@ export default function SessionsPage() {
     }
   }
 
+  const teacherOptions = useMemo(() => {
+    const map = new Map()
+    for (const s of sessions) {
+      if (!s.teacher_id || map.has(s.teacher_id)) continue
+      map.set(s.teacher_id, s.teacher?.full_name || 'Teacher')
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [sessions])
+
+  const visibleSessions = useMemo(() => {
+    if (!canSeeAll || teacherFilter === 'all') return sessions
+    return sessions.filter((s) => s.teacher_id === teacherFilter)
+  }, [canSeeAll, sessions, teacherFilter])
+
+  const selectedTeacherName = teacherOptions.find((t) => t.id === teacherFilter)?.name
+
   const exportCsv = () => {
     const header = [
       'date',
@@ -65,7 +95,7 @@ export default function SessionsPage() {
       'teacher_notes',
       'manager_feedback',
     ]
-    const rows = sessions.map((s) => [
+    const rows = visibleSessions.map((s) => [
       s.session_date || s.created_at,
       s.teacher?.full_name || '',
       s.student_name,
@@ -90,12 +120,39 @@ export default function SessionsPage() {
 
   const startEdit = (sessionId) => {
     setEditingId(sessionId)
-    setSearchParams(sessionId ? { edit: sessionId } : {}, { replace: true })
+    patchParams({ edit: sessionId || null })
   }
 
   const stopEdit = () => {
     setEditingId('')
-    setSearchParams({}, { replace: true })
+    patchParams({ edit: null })
+  }
+
+  useEffect(() => {
+    if (!focusSessionId) return
+    const el = document.getElementById(`session-${focusSessionId}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [focusSessionId, visibleSessions])
+
+  const removeClass = async (session) => {
+    const when = new Date(session.session_date || session.created_at).toLocaleDateString()
+    const ok = window.confirm(
+      `Remove ${session.student_name}'s class on ${when}? Use this if it was cancelled or postponed.`,
+    )
+    if (!ok) return
+    setError('')
+    setMessage('')
+    setBusyId(session.id)
+    try {
+      await api.deleteSession(session.id)
+      if (editingId === session.id) stopEdit()
+      await load()
+      setMessage('Class removed.')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusyId('')
+    }
   }
 
   const monthHours = useMemo(() => {
@@ -116,7 +173,13 @@ export default function SessionsPage() {
       </p>
       <header className="teacher-dash__hero">
         <div>
-          <h1>{canSeeAll ? 'All classes' : 'Your classes'}</h1>
+          <h1>
+            {canSeeAll
+              ? selectedTeacherName
+                ? `${selectedTeacherName}'s classes`
+                : 'All classes'
+              : 'Your classes'}
+          </h1>
           <p className="muted">
             {canLogSession
               ? `This month · ${formatHours(monthHours)} hours`
@@ -127,7 +190,7 @@ export default function SessionsPage() {
                   : ''}
           </p>
         </div>
-        <button type="button" className="btn secondary compact" onClick={exportCsv} disabled={!sessions.length}>
+        <button type="button" className="btn secondary compact" onClick={exportCsv} disabled={!visibleSessions.length}>
           Export CSV
         </button>
       </header>
@@ -175,11 +238,26 @@ export default function SessionsPage() {
               </thead>
               <tbody>
                 {sessions.map((s) => (
-                  <tr key={s.id} className={s.id === editingId ? 'is-selected' : ''}>
+                  <tr
+                    key={s.id}
+                    id={`session-${s.id}`}
+                    className={s.id === editingId || s.id === focusSessionId ? 'is-selected' : ''}
+                  >
                     <td>{new Date(s.session_date || s.created_at).toLocaleDateString()}</td>
                     <td>
                       {s.student_name}
                       {s.notes ? <div className="muted">{s.notes}</div> : null}
+                      {s.manager_feedback ? (
+                        <div className="session-card__feedback">
+                          <span className="muted">
+                            Manager feedback
+                            {s.manager_feedback_at
+                              ? ` · ${new Date(s.manager_feedback_at).toLocaleString()}`
+                              : ''}
+                          </span>
+                          <p>{s.manager_feedback}</p>
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       {s.course?.title || 'Course'}
@@ -187,13 +265,23 @@ export default function SessionsPage() {
                     </td>
                     <td>{formatHours(s.hours)}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="table-link"
-                        onClick={() => (s.id === editingId ? stopEdit() : startEdit(s.id))}
-                      >
-                        {s.id === editingId ? 'Cancel' : 'Edit'}
-                      </button>
+                      <div className="person-row__tools">
+                        <button
+                          type="button"
+                          className="table-link"
+                          onClick={() => (s.id === editingId ? stopEdit() : startEdit(s.id))}
+                        >
+                          {s.id === editingId ? 'Cancel' : 'Edit'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn text-danger"
+                          disabled={Boolean(busyId)}
+                          onClick={() => removeClass(s)}
+                        >
+                          {busyId === s.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -203,17 +291,47 @@ export default function SessionsPage() {
         </section>
       ) : (
         <section className="panel">
-          <h2>{isManager ? 'Session review' : 'Session history'}</h2>
+          <div className="sessions-toolbar">
+            <h2>{isManager ? 'Session review' : 'Session history'}</h2>
+            {canSeeAll && teacherOptions.length ? (
+              <div className="field sessions-toolbar__filter">
+                <label htmlFor="filter-teacher">Teacher</label>
+                <select
+                  id="filter-teacher"
+                  value={teacherFilter}
+                  onChange={(e) => patchParams({ teacher: e.target.value })}
+                >
+                  <option value="all">All teachers</option>
+                  {teacherOptions.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </div>
           {!sessions.length ? <p className="muted">No sessions yet.</p> : null}
+          {sessions.length && !visibleSessions.length ? (
+            <p className="muted">No sessions for this teacher.</p>
+          ) : null}
           <div className="session-list">
-            {sessions.map((s) => (
-              <article key={s.id} className="session-card">
+            {visibleSessions.map((s) => (
+              <article
+                key={s.id}
+                id={`session-${s.id}`}
+                className={`session-card${s.id === focusSessionId ? ' is-selected' : ''}`}
+              >
                 <div className="session-card__head">
                   <div>
                     <strong>{s.student_name}</strong>
+                    {canSeeAll ? (
+                      <div className="session-card__teacher">
+                        {s.teacher?.full_name || 'No teacher assigned'}
+                      </div>
+                    ) : null}
                     <div className="muted" style={{ fontSize: '0.88rem' }}>
                       {new Date(s.session_date || s.created_at).toLocaleString()}
-                      {canSeeAll ? ` · ${s.teacher?.full_name || 'Teacher'}` : ''}
                       {s.hours != null ? ` · ${formatHours(s.hours)}h` : ''}
                     </div>
                   </div>

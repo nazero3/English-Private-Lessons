@@ -335,6 +335,10 @@ export const httpApi = {
     return request(`/api/parents/${parentId}`, { method: 'PATCH', body: JSON.stringify(payload) })
   },
 
+  async deleteParent(parentId) {
+    return request(`/api/parents/${parentId}`, { method: 'DELETE' })
+  },
+
   async linkParentStudent(parentId, payload) {
     return request(`/api/parents/${parentId}/students`, { method: 'POST', body: JSON.stringify(payload) })
   },

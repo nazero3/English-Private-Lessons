@@ -52,6 +52,13 @@ def _catalog_lesson(session: LessonSession) -> dict | None:
     }
 
 
+def _feedback_preview(text: str, limit: int = 160) -> str:
+    compact = " ".join((text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 1].rstrip() + "…"
+
+
 def _session_dict(session: LessonSession, db: Session) -> dict:
     lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first() if session.lesson_id else None
     course = db.query(Course).filter(Course.id == lesson.course_id).first() if lesson else None
@@ -411,13 +418,17 @@ def add_feedback(
     else:
         label = "a lesson"
 
+    preview = _feedback_preview(text)
     db.add(
         Notification(
             user_id=session.teacher_id,
             session_id=session.id,
             type="manager_feedback",
             title="New manager feedback",
-            message=f"{manager.full_name or 'Manager'} left feedback on {session.student_name}'s session ({label}).",
+            message=(
+                f"{manager.full_name or 'Manager'} left feedback on {session.student_name}'s session ({label}): "
+                f"{preview}"
+            ),
         )
     )
     db.commit()

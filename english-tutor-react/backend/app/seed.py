@@ -285,8 +285,8 @@ def seed_users(db: Session) -> None:
 
         db.commit()
         ensure_demo_student(db)
+        ensure_demo_parent(db)
 
-    ensure_demo_parent(db)
     ensure_demo_operations(db)
     ensure_family_catalog(db)
 

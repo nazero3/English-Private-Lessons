@@ -4,6 +4,8 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { homePath } from '../lib/permissions'
 
+const HOUR_CHIPS = ['0.5', '1', '1.5', '2']
+
 function currentMonthValue() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -33,6 +35,9 @@ export default function HoursPage() {
   const [selectedTeacherId, setSelectedTeacherId] = useState(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [busyId, setBusyId] = useState('')
+  const [editingId, setEditingId] = useState('')
+  const [hoursDraft, setHoursDraft] = useState('')
 
   const load = async () => {
     setError('')
@@ -52,6 +57,19 @@ export default function HoursPage() {
   useEffect(() => {
     load()
   }, [profile, month])
+
+  useEffect(() => {
+    const teachers = summary?.teachers || []
+    if (!teachers.length) {
+      setSelectedTeacherId(null)
+      return
+    }
+    setSelectedTeacherId((id) => {
+      if (id && teachers.some((t) => t.teacher_id === id)) return id
+      const withHours = teachers.find((t) => t.session_count > 0)
+      return (withHours || teachers[0]).teacher_id
+    })
+  }, [summary])
 
   const selectedTeacher = summary?.teachers?.find((t) => t.teacher_id === selectedTeacherId)
 
@@ -79,40 +97,49 @@ export default function HoursPage() {
   const deleteHour = async (session) => {
     const when = new Date(session.session_date || session.created_at).toLocaleDateString()
     const ok = window.confirm(
-      `Delete ${formatHours(session.hours)} hours for ${session.student_name} on ${when}?`,
+      `Remove ${formatHours(session.hours)} hours for ${session.student_name} on ${when}? Use this if the class was cancelled or postponed.`,
     )
     if (!ok) return
     setError('')
     setMessage('')
+    setBusyId(session.id)
     try {
       await api.deleteSession(session.id)
+      if (editingId === session.id) setEditingId('')
       await load()
-      setMessage('Hours removed.')
+      setMessage('Class removed.')
     } catch (e) {
       setError(e.message)
+    } finally {
+      setBusyId('')
     }
   }
 
-  const deleteTeacherMonthHours = async (teacherId, teacherName) => {
-    const rows = hoursForTeacher(teacherId)
-    if (!rows.length) return
-    const ok = window.confirm(
-      `Delete ${rows.length} class${rows.length === 1 ? '' : 'es'} (${formatHours(
-        rows.reduce((sum, s) => sum + Number(s.hours || 0), 0),
-      )} hours) for ${teacherName || 'this teacher'} in ${month}?`,
-    )
-    if (!ok) return
+  const startEditHours = (session) => {
+    setEditingId(session.id)
+    setHoursDraft(formatHours(session.hours))
+    setError('')
+    setMessage('')
+  }
+
+  const saveHours = async (session) => {
+    const n = Number(hoursDraft)
+    if (!Number.isFinite(n) || n < 0.5) {
+      setError('Hours must be at least 0.5.')
+      return
+    }
+    setBusyId(session.id)
     setError('')
     setMessage('')
     try {
-      for (const row of rows) {
-        await api.deleteSession(row.id)
-      }
+      await api.updateSession(session.id, { hours: n })
+      setEditingId('')
       await load()
-      setMessage('Teacher hours removed for this month.')
+      setMessage('Hours updated.')
     } catch (e) {
       setError(e.message)
-      await load()
+    } finally {
+      setBusyId('')
     }
   }
 
@@ -144,7 +171,11 @@ export default function HoursPage() {
       <header className="teacher-dash__hero">
         <div>
           <h1>Teacher hours</h1>
-          <p className="muted">Hours logged on class sessions this month. Check-mode scores are not counted.</p>
+          <p className="muted">
+            {isManager
+              ? 'Open a teacher, then change or remove one class. Cancelled lessons should be deleted, not the whole month.'
+              : 'Hours logged on class sessions this month. Check-mode scores are not counted.'}
+          </p>
         </div>
         <button type="button" className="btn secondary compact" onClick={exportCsv} disabled={!summary?.teachers?.length}>
           Export CSV
@@ -164,6 +195,7 @@ export default function HoursPage() {
               onChange={(e) => {
                 setMonth(e.target.value)
                 setSelectedTeacherId(null)
+                setEditingId('')
               }}
             />
           </div>
@@ -182,13 +214,12 @@ export default function HoursPage() {
               <th>Teacher</th>
               <th>Classes</th>
               <th>Hours</th>
-              {isManager ? <th></th> : null}
             </tr>
           </thead>
           <tbody>
             {!summary?.teachers?.length ? (
               <tr>
-                <td colSpan={isManager ? 4 : 3} className="muted">
+                <td colSpan={3} className="muted">
                   No teachers yet.
                 </td>
               </tr>
@@ -202,30 +233,16 @@ export default function HoursPage() {
                     <button
                       type="button"
                       className="table-link"
-                      onClick={() =>
-                        setSelectedTeacherId((id) => (id === row.teacher_id ? null : row.teacher_id))
-                      }
+                      onClick={() => {
+                        setSelectedTeacherId(row.teacher_id)
+                        setEditingId('')
+                      }}
                     >
                       {row.teacher?.full_name || 'Teacher'}
                     </button>
                   </td>
                   <td>{row.session_count}</td>
                   <td>{formatHours(row.total_hours)}</td>
-                  {isManager ? (
-                    <td>
-                      <button
-                        type="button"
-                        className="btn text-danger"
-                        disabled={!hoursForTeacher(row.teacher_id).length}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteTeacherMonthHours(row.teacher_id, row.teacher?.full_name)
-                        }}
-                      >
-                        Delete hours
-                      </button>
-                    </td>
-                  ) : null}
                 </tr>
               ))
             )}
@@ -235,22 +252,14 @@ export default function HoursPage() {
 
       {selectedTeacher ? (
         <section className="panel">
-          <div className="teacher-dash__hero" style={{ marginBottom: '0.75rem' }}>
-            <h2 style={{ margin: 0 }}>
-              {selectedTeacher.teacher?.full_name} · {month}
-            </h2>
-            {isManager && teacherSessions.length ? (
-              <button
-                type="button"
-                className="btn text-danger"
-                onClick={() =>
-                  deleteTeacherMonthHours(selectedTeacher.teacher_id, selectedTeacher.teacher?.full_name)
-                }
-              >
-                Delete hours
-              </button>
-            ) : null}
-          </div>
+          <h2 style={{ marginTop: 0 }}>
+            {selectedTeacher.teacher?.full_name} · {month}
+          </h2>
+          <p className="muted">
+            {isManager
+              ? 'Edit the hours for one class, or delete it if it was cancelled or postponed.'
+              : 'Classes counted in this month’s total.'}
+          </p>
           {!teacherSessions.length ? (
             <p className="muted">No timed classes this month.</p>
           ) : (
@@ -273,12 +282,69 @@ export default function HoursPage() {
                       {s.course?.title || 'Course'}
                       {s.lesson?.unit_number != null ? ` · U${s.lesson.unit_number}` : ''}
                     </td>
-                    <td>{formatHours(s.hours)}</td>
+                    <td>
+                      {isManager && editingId === s.id ? (
+                        <div className="hour-chips">
+                          {HOUR_CHIPS.map((h) => (
+                            <button
+                              key={h}
+                              type="button"
+                              className={`hour-chip${hoursDraft === h ? ' is-on' : ''}`}
+                              onClick={() => setHoursDraft(h)}
+                            >
+                              {h}
+                            </button>
+                          ))}
+                          <input
+                            type="number"
+                            min="0.5"
+                            step="0.5"
+                            value={hoursDraft}
+                            onChange={(e) => setHoursDraft(e.target.value)}
+                            aria-label="Hours"
+                            style={{ width: '4.5rem' }}
+                          />
+                        </div>
+                      ) : (
+                        formatHours(s.hours)
+                      )}
+                    </td>
                     {isManager ? (
                       <td>
-                        <button type="button" className="btn text-danger" onClick={() => deleteHour(s)}>
-                          Delete
-                        </button>
+                        <div className="person-row__tools">
+                          {editingId === s.id ? (
+                            <>
+                              <button
+                                type="button"
+                                className="table-link"
+                                disabled={Boolean(busyId)}
+                                onClick={() => saveHours(s)}
+                              >
+                                Save
+                              </button>
+                              <button type="button" className="table-link" onClick={() => setEditingId('')}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              className="table-link"
+                              disabled={Boolean(busyId)}
+                              onClick={() => startEditHours(s)}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn text-danger"
+                            disabled={Boolean(busyId)}
+                            onClick={() => deleteHour(s)}
+                          >
+                            {busyId === s.id ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </div>
                       </td>
                     ) : null}
                   </tr>
