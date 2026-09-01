@@ -22,6 +22,7 @@ import {
 import PrintPage from './pages/PrintPage'
 import SessionsPage from './pages/SessionsPage'
 import HoursPage from './pages/HoursPage'
+import KinzMount from './kinz/KinzMount'
 import {
   BriefPage,
   HomeworkPage,
@@ -81,6 +82,10 @@ export default function App() {
               path="/print/physics/:courseId/:unitNumber/:kind"
               element={<CoursebookPrintPage source="physics" />}
             />
+
+            <Route element={<RequireAuth role="operations" />}>
+              <Route path="/operations/families/*" element={<KinzMount />} />
+            </Route>
 
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomeRedirect />} />

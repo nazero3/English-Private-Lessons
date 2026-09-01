@@ -150,6 +150,7 @@ function primaryNav(role) {
     return [
       { to: '/operations', label: 'Hours', end: true, icon: <IconClock /> },
       { to: '/operations/sessions', label: 'Sessions', icon: <IconCalendar /> },
+      { to: '/operations/families', label: 'Families', icon: <IconPeople /> },
     ]
   }
   if (role === 'teacher') {
@@ -228,29 +229,54 @@ export function AppLayout() {
           <div className="topbar-nav">
             {profile?.role === 'manager' ? (
               <>
-                <Link className="btn secondary" to="/manager/students">
+                <NavLink
+                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
+                  to="/manager/students"
+                >
                   Students
-                </Link>
-                <Link className="btn secondary" to="/manager/parents">
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
+                  to="/manager/parents"
+                >
                   Families
-                </Link>
-                <Link className="btn secondary" to="/manager/sessions">
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
+                  to="/manager/sessions"
+                >
                   Sessions
-                </Link>
-                <Link className="btn secondary" to="/manager/hours">
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `btn${isActive ? '' : ' secondary'}`}
+                  to="/manager/hours"
+                >
                   Hours
-                </Link>
+                </NavLink>
               </>
             ) : null}
 
             {profile?.role === 'operations' ? (
               <>
-                <Link className="btn secondary" to="/operations">
+                <NavLink
+                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
+                  to="/operations/families"
+                >
+                  Families
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `btn${isActive ? '' : ' secondary'}`}
+                  to="/operations"
+                  end
+                >
                   Hours
-                </Link>
-                <Link className="btn secondary" to="/operations/sessions">
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `btn secondary${isActive ? ' is-nav-on' : ''}`}
+                  to="/operations/sessions"
+                >
                   Sessions
-                </Link>
+                </NavLink>
               </>
             ) : null}
 

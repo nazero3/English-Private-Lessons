@@ -985,10 +985,6 @@ h3,
 
 /* Manager dashboard */
 .manager-dash__hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
   margin-bottom: 1rem;
 }
 
@@ -1074,18 +1070,16 @@ h3,
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1.15rem 1.25rem;
+  padding: 0.9rem 1rem;
   box-shadow: 0 10px 30px rgba(11, 16, 36, 0.04);
 }
 
 .access-card__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.85rem;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.75rem;
 }
 
 .access-card__head h3 {
@@ -1105,20 +1099,17 @@ h3,
   flex-shrink: 0;
 }
 
-.access-groups {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+.staff-subhead {
+  margin: 1.75rem 0 0.2rem;
+  font-size: 1.05rem;
 }
 
-.access-group h4 {
-  margin: 0 0 0.2rem;
-  font-size: 0.95rem;
+.manager-section__intro + .staff-subhead {
+  margin-top: 0.35rem;
 }
 
-.access-group__hint {
-  margin: 0 0 0.65rem;
-  font-size: 0.8rem;
+.staff-subhead__hint {
+  margin: 0 0 0.85rem;
 }
 
 .access-chip-row {
@@ -1546,14 +1537,6 @@ h3,
 }
 
 @media (max-width: 900px) {
-  .access-groups {
-    grid-template-columns: 1fr;
-  }
-
-  .manager-dash__hero {
-    flex-direction: column;
-  }
-
   .access-card__head {
     flex-direction: column;
   }
@@ -1816,4 +1799,58 @@ html:has(.bottom-nav) .pwa-install {
   .bottom-nav {
     display: none !important;
   }
+}
+
+.kinz-preview {
+  min-height: 100svh;
+  background: #fffaf0;
+}
+
+.kinz-preview__bar {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 1rem;
+  padding: 0.5rem 1rem;
+  background: #1a2656;
+  color: #fff;
+  font-family: var(--font-body);
+  direction: ltr;
+}
+
+.kinz-preview__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.kinz-preview__nav a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+}
+
+.kinz-preview__nav a.active {
+  background: #fbb03b;
+  color: #1a2656;
+}
+
+.kinz-preview__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.kinz-preview__exit {
+  color: #fbb03b;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 0.9rem;
 }

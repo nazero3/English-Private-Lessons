@@ -10,10 +10,9 @@ import { useAuth } from '../lib/AuthContext'
 const emptyForm = { email: '', password: '', full_name: '' }
 
 const TABS = [
-  { id: 'access', label: 'Curriculum access' },
-  { id: 'teachers', label: 'Teachers' },
-  { id: 'operations', label: 'Operations' },
-  { id: 'library', label: 'Content library' },
+  { id: 'access', label: 'Access' },
+  { id: 'staff', label: 'Staff' },
+  { id: 'library', label: 'Library' },
 ]
 
 function AccessChip({ active, onClick, children }) {
@@ -102,7 +101,7 @@ export default function ManagerHome() {
     })
     setMessage('')
     setError('')
-    setTab('teachers')
+    setTab('staff')
   }
 
   const cancelEdit = () => {
@@ -148,7 +147,7 @@ export default function ManagerHome() {
     })
     setMessage('')
     setError('')
-    setTab('operations')
+    setTab('staff')
   }
 
   const cancelEditOps = () => {
@@ -218,24 +217,8 @@ export default function ManagerHome() {
     <div className="manager-dash">
       <header className="manager-dash__hero">
         <div>
-          <h1>Manager dashboard</h1>
-          <p className="muted">
-            Assign curriculum access, manage teachers, and open course content.
-          </p>
-        </div>
-        <div className="actions">
-          <Link className="btn secondary" to="/manager/students">
-            Students
-          </Link>
-          <Link className="btn secondary" to="/manager/parents">
-            Families
-          </Link>
-          <Link className="btn secondary" to="/manager/sessions">
-            View sessions
-          </Link>
-          <Link className="btn secondary" to="/manager/hours">
-            Teacher hours
-          </Link>
+          <h1>Manager</h1>
+          <p className="muted">Turn access on for each teacher. Add staff in the Staff tab.</p>
         </div>
       </header>
 
@@ -253,11 +236,8 @@ export default function ManagerHome() {
             onClick={() => setTab(item.id)}
           >
             {item.label}
-            {item.id === 'access' && teachers.length ? (
-              <span className="manager-tabs__count">{teachers.length}</span>
-            ) : null}
-            {item.id === 'operations' && operations.length ? (
-              <span className="manager-tabs__count">{operations.length}</span>
+            {item.id === 'staff' && teachers.length + operations.length ? (
+              <span className="manager-tabs__count">{teachers.length + operations.length}</span>
             ) : null}
           </button>
         ))}
@@ -267,18 +247,15 @@ export default function ManagerHome() {
         <section className="manager-section" role="tabpanel">
           <div className="manager-section__intro">
             <h2>Curriculum access</h2>
-            <p className="muted">
-              One place per teacher: English lesson packs, English File private lessons, and
-              Math Grade 9 & 12.
-            </p>
+            <p className="muted">Tap a subject to turn it on or off for that teacher.</p>
           </div>
 
           {!teachers.length ? (
             <div className="panel">
               <p className="muted" style={{ margin: 0 }}>
                 No teachers yet.{' '}
-                <button type="button" className="btn ghost" onClick={() => setTab('teachers')}>
-                  Create a teacher
+                <button type="button" className="btn ghost" onClick={() => setTab('staff')}>
+                  Add a teacher
                 </button>
               </p>
             </div>
@@ -291,97 +268,46 @@ export default function ManagerHome() {
                       <h3>{t.full_name}</h3>
                       <p className="muted">{t.email || '—'}</p>
                     </div>
-                    <div className="access-card__meta">
-                      <span className="badge">{countAccess(t)} enabled</span>
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        onClick={() => startEdit(t)}
-                      >
-                        Edit account
-                      </button>
-                    </div>
+                    <span className="badge">{countAccess(t)} on</span>
                   </header>
 
-                  <div className="access-groups">
-                    <div className="access-group">
-                      <h4>English lesson packs</h4>
-                      <p className="muted access-group__hint">Grade packs with printable sheets</p>
-                      <div className="access-chip-row">
-                        {courses.map((c) => {
-                          const on = isAssigned(t.id, c.id)
-                          return (
-                            <AccessChip
-                              key={c.id}
-                              active={on}
-                              onClick={() => toggleAssign(t.id, c.id, !on)}
-                            >
-                              {c.title}
-                            </AccessChip>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="access-group">
-                      <h4>English File</h4>
-                      <p className="muted access-group__hint">Beginner + Intermediate private lessons</p>
-                      <div className="access-chip-row">
+                  <div className="access-chip-row">
+                    {courses.map((c) => {
+                      const on = isAssigned(t.id, c.id)
+                      return (
                         <AccessChip
-                          active={Boolean(t.can_access_private_lessons)}
-                          onClick={() =>
-                            togglePrivateLessons(t.id, !t.can_access_private_lessons)
-                          }
+                          key={c.id}
+                          active={on}
+                          onClick={() => toggleAssign(t.id, c.id, !on)}
                         >
-                          Private lessons
+                          {c.title}
                         </AccessChip>
-                      </div>
-                    </div>
-
-                    <div className="access-group">
-                      <h4>Math · صف 9</h4>
-                      <p className="muted access-group__hint">الجبر والهندسة</p>
-                      <div className="access-chip-row">
-                        <AccessChip
-                          active={Boolean(t.can_access_math_grade9)}
-                          onClick={() =>
-                            toggleMathGrade9(t.id, !t.can_access_math_grade9)
-                          }
-                        >
-                          رياضيات التاسع
-                        </AccessChip>
-                      </div>
-                    </div>
-
-                    <div className="access-group">
-                      <h4>Math · Grade 12</h4>
-                      <p className="muted access-group__hint">البكالوريا — الجزء الأول والثاني</p>
-                      <div className="access-chip-row">
-                        <AccessChip
-                          active={Boolean(t.can_access_math_grade12)}
-                          onClick={() =>
-                            toggleMathGrade12(t.id, !t.can_access_math_grade12)
-                          }
-                        >
-                          Math Grade 12
-                        </AccessChip>
-                      </div>
-                    </div>
-
-                    <div className="access-group">
-                      <h4>Physics · Grade 12</h4>
-                      <p className="muted access-group__hint">فيزياء البكالوريا — كتاب الطالب</p>
-                      <div className="access-chip-row">
-                        <AccessChip
-                          active={Boolean(t.can_access_physics_grade12)}
-                          onClick={() =>
-                            togglePhysicsGrade12(t.id, !t.can_access_physics_grade12)
-                          }
-                        >
-                          Physics Grade 12
-                        </AccessChip>
-                      </div>
-                    </div>
+                      )
+                    })}
+                    <AccessChip
+                      active={Boolean(t.can_access_private_lessons)}
+                      onClick={() => togglePrivateLessons(t.id, !t.can_access_private_lessons)}
+                    >
+                      English File
+                    </AccessChip>
+                    <AccessChip
+                      active={Boolean(t.can_access_math_grade9)}
+                      onClick={() => toggleMathGrade9(t.id, !t.can_access_math_grade9)}
+                    >
+                      Math 9
+                    </AccessChip>
+                    <AccessChip
+                      active={Boolean(t.can_access_math_grade12)}
+                      onClick={() => toggleMathGrade12(t.id, !t.can_access_math_grade12)}
+                    >
+                      Math 12
+                    </AccessChip>
+                    <AccessChip
+                      active={Boolean(t.can_access_physics_grade12)}
+                      onClick={() => togglePhysicsGrade12(t.id, !t.can_access_physics_grade12)}
+                    >
+                      Physics 12
+                    </AccessChip>
                   </div>
                 </article>
               ))}
@@ -390,12 +316,15 @@ export default function ManagerHome() {
         </section>
       ) : null}
 
-      {tab === 'teachers' ? (
+      {tab === 'staff' ? (
         <section className="manager-section" role="tabpanel">
           <div className="manager-section__intro">
-            <h2>Teachers</h2>
-            <p className="muted">Create accounts, edit details, or remove teachers.</p>
+            <h2>Staff</h2>
+            <p className="muted">Teacher logins and operations accounts.</p>
           </div>
+
+          <h3 className="staff-subhead">Teachers</h3>
+          <p className="muted staff-subhead__hint">Logins for people who teach classes.</p>
 
           <div className="grid-2">
             <section className="panel">
@@ -524,18 +453,9 @@ export default function ManagerHome() {
               </div>
             </form>
           ) : null}
-        </section>
-      ) : null}
 
-      {tab === 'operations' ? (
-        <section className="manager-section" role="tabpanel">
-          <div className="manager-section__intro">
-            <h2>Operations</h2>
-            <p className="muted">
-              Create logins for operations staff. They can see teacher hours and all sessions — not
-              curriculum or families.
-            </p>
-          </div>
+          <h3 className="staff-subhead">Operations</h3>
+          <p className="muted staff-subhead__hint">Hours and sessions only — no curriculum or families.</p>
 
           <div className="grid-2">
             <section className="panel">
@@ -654,10 +574,7 @@ export default function ManagerHome() {
         <section className="manager-section" role="tabpanel">
           <div className="manager-section__intro">
             <h2>Content library</h2>
-            <p className="muted">
-              Open curriculum content. English lesson packs use the same preview and print
-              flow as teachers; English File and Math open the session view.
-            </p>
+            <p className="muted">Open a pack to preview or print.</p>
           </div>
 
           <div className="library-block">
