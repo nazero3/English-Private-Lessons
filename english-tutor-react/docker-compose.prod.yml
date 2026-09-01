@@ -1,0 +1,31 @@
+# Production overlay: Caddy terminates TLS and proxies to nginx.
+# Usage:
+#   export DOMAIN=lessons.example.com ACME_EMAIL=you@example.com
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# IP-only (no domain): use base compose only — docker compose up -d --build
+
+services:
+  nginx:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env for HTTPS — e.g. lessons.example.com}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nginx
+
+volumes:
+  caddy_data:
+  caddy_config:

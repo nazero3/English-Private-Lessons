@@ -1,0 +1,7 @@
+# Auto-TLS when DOMAIN is set. Caddy obtains certs from Let's Encrypt.
+# For IP-only testing, leave DOMAIN empty — nginx serves :80 directly (no Caddy).
+
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy nginx:80
+}
