@@ -793,6 +793,9 @@ export const localApi = {
       if (!student) throw new Error('Student not found')
       db.students = db.students.filter((s) => s.id !== studentId)
       db.scores = (db.scores || []).filter((s) => s.student_id !== studentId)
+      db.sessions = (db.sessions || []).map((s) =>
+        s.student_id === studentId ? { ...s, student_id: null } : s,
+      )
       if (student.user_id) {
         db.users = db.users.filter((u) => u.id !== student.user_id)
         db.profiles = db.profiles.filter((p) => p.id !== student.user_id)

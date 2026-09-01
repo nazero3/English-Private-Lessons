@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -142,7 +142,15 @@ class LessonSession(Base):
 
 class Student(Base):
     __tablename__ = "students"
-    __table_args__ = (UniqueConstraint("teacher_id", "full_name"),)
+    __table_args__ = (
+        Index(
+            "students_teacher_id_full_name_uidx",
+            "teacher_id",
+            "full_name",
+            unique=True,
+            postgresql_where=text("teacher_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()")

@@ -2,12 +2,26 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
 from ..database import get_db
 from ..deps import get_current_profile, require_staff
-from ..models import AppRole, Course, Lesson, LessonSession, Profile, Student, StudentScore, User
+from ..models import (
+    AppRole,
+    Course,
+    CreditLedger,
+    Lesson,
+    LessonSession,
+    Notification,
+    ParentStudent,
+    Profile,
+    PublicSpotlight,
+    Student,
+    StudentScore,
+    User,
+)
 from ..schemas import StudentCreate, StudentScoreCreate, StudentScoreUpdate, StudentUpdate
 
 router = APIRouter(tags=["students"])
@@ -289,6 +303,12 @@ def update_student(
     db: Session = Depends(get_db),
 ):
     student = _get_managed_student(db, profile, student_id)
+    data = body.model_dump(exclude_unset=True)
+    if "teacher_id" in data and data["teacher_id"] is None:
+        from ..seed import _ensure_student_schema
+
+        _ensure_student_schema(db)
+        student = _get_managed_student(db, profile, student_id)
     if body.full_name is not None:
         name = body.full_name.strip()
         if not name:
@@ -310,7 +330,6 @@ def update_student(
             if login_profile:
                 login_profile.full_name = name
 
-    data = body.model_dump(exclude_unset=True)
     if "teacher_id" in data:
         if profile.role != AppRole.manager:
             raise HTTPException(status_code=403, detail="Only a manager can reassign a student")
@@ -352,21 +371,74 @@ def update_student(
                 raise HTTPException(status_code=400, detail="Email and password are required to create a login")
             student.user_id = _create_login(db, email, body.password, student.full_name)
 
-    db.commit()
-    db.refresh(student)
+    try:
+        db.commit()
+        db.refresh(student)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Could not update this student. If you chose No teacher, restart the API and try again.",
+        ) from None
     return _student_dict(student, db)
 
 
 @router.delete("/students/{student_id}")
 def delete_student(student_id: UUID, profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+    from ..seed import _ensure_student_schema
+
+    _ensure_student_schema(db)
     student = _get_managed_student(db, profile, student_id)
     user_id = student.user_id
-    db.delete(student)
-    if user_id:
-        user = db.query(User).filter(User.id == user_id).first()
-        if user:
-            db.delete(user)
-    db.commit()
+    sid = student.id
+    db.query(StudentScore).filter(StudentScore.student_id == sid).delete(synchronize_session=False)
+    db.query(ParentStudent).filter(ParentStudent.student_id == sid).delete(synchronize_session=False)
+    db.query(PublicSpotlight).filter(PublicSpotlight.student_id == sid).delete(synchronize_session=False)
+    db.query(LessonSession).filter(LessonSession.student_id == sid).update(
+        {LessonSession.student_id: None},
+        synchronize_session=False,
+    )
+    db.query(CreditLedger).filter(CreditLedger.student_id == sid).update(
+        {CreditLedger.student_id: None},
+        synchronize_session=False,
+    )
+    student.user_id = None
+    try:
+        db.flush()
+        db.delete(student)
+        db.flush()
+        if user_id:
+            db.query(Notification).filter(Notification.user_id == user_id).delete(synchronize_session=False)
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                db.delete(user)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        from ..seed import _ensure_student_schema
+
+        _ensure_student_schema(db)
+        student = db.query(Student).filter(Student.id == student_id).first()
+        if not student:
+            return {"id": str(student_id)}
+        try:
+            student.user_id = None
+            db.query(LessonSession).filter(LessonSession.student_id == student.id).update(
+                {LessonSession.student_id: None},
+                synchronize_session=False,
+            )
+            db.delete(student)
+            if user_id:
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    db.delete(user)
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="This student still has linked records that could not be cleared.",
+            ) from None
     return {"id": str(student_id)}
 
 

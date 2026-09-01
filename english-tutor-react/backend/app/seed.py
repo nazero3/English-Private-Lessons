@@ -47,6 +47,79 @@ def init_db() -> None:
         db.close()
 
 
+def _ddl(db: Session, sql: str) -> None:
+    conn = db.connection()
+    try:
+        conn.exec_driver_sql(sql)
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def _replace_fk(db: Session, table: str, column: str, target_table: str, ondelete: str) -> None:
+    _ddl(
+        db,
+        f"""
+        DO $$
+        DECLARE r record;
+        BEGIN
+          FOR r IN
+            SELECT c.conname
+            FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+            WHERE c.conrelid = '{table}'::regclass
+              AND c.contype = 'f'
+              AND a.attname = '{column}'
+          LOOP
+            EXECUTE format('ALTER TABLE {table} DROP CONSTRAINT %I', r.conname);
+          END LOOP;
+        END $$;
+        """,
+    )
+    _ddl(
+        db,
+        f"ALTER TABLE {table} ADD CONSTRAINT {table}_{column}_fkey "
+        f"FOREIGN KEY ({column}) REFERENCES {target_table}(id) ON DELETE {ondelete}",
+    )
+
+
+def _ensure_student_schema(db: Session) -> None:
+    """Allow unassigned students and let roster rows be deleted without leftover FKs."""
+    _ddl(db, "ALTER TABLE students ALTER COLUMN teacher_id DROP NOT NULL")
+    _replace_fk(db, "students", "teacher_id", "profiles", "SET NULL")
+    _replace_fk(db, "students", "user_id", "profiles", "SET NULL")
+    _ddl(db, "ALTER TABLE lesson_sessions ALTER COLUMN student_id DROP NOT NULL")
+    _replace_fk(db, "lesson_sessions", "student_id", "students", "SET NULL")
+    _replace_fk(db, "student_scores", "student_id", "students", "CASCADE")
+    _replace_fk(db, "parent_students", "student_id", "students", "CASCADE")
+    _replace_fk(db, "credit_ledger", "student_id", "students", "SET NULL")
+    _replace_fk(db, "public_spotlights", "student_id", "students", "CASCADE")
+    _ddl(
+        db,
+        """
+        DO $$
+        DECLARE r record;
+        BEGIN
+          FOR r IN
+            SELECT c.conname
+            FROM pg_constraint c
+            WHERE c.conrelid = 'students'::regclass
+              AND c.contype = 'u'
+              AND pg_get_constraintdef(c.oid) ILIKE '%teacher_id%'
+              AND pg_get_constraintdef(c.oid) ILIKE '%full_name%'
+          LOOP
+            EXECUTE format('ALTER TABLE students DROP CONSTRAINT %I', r.conname);
+          END LOOP;
+        END $$;
+        """,
+    )
+    _ddl(
+        db,
+        "CREATE UNIQUE INDEX IF NOT EXISTS students_teacher_id_full_name_uidx "
+        "ON students (teacher_id, lower(full_name)) WHERE teacher_id IS NOT NULL",
+    )
+
+
 def patch_db_defaults(db: Session) -> None:
     """Match Supabase schema: raw SQL inserts omit id and rely on gen_random_uuid()."""
     conn = db.connection()
@@ -101,37 +174,6 @@ def patch_db_defaults(db: Session) -> None:
     conn.exec_driver_sql(
         "ALTER TABLE students ADD COLUMN IF NOT EXISTS user_id uuid UNIQUE REFERENCES profiles(id) ON DELETE SET NULL"
     )
-    try:
-        conn.exec_driver_sql("ALTER TABLE students ALTER COLUMN teacher_id DROP NOT NULL")
-    except Exception:
-        db.rollback()
-        conn = db.connection()
-    try:
-        conn.exec_driver_sql(
-            """
-            DO $$
-            DECLARE r record;
-            BEGIN
-              FOR r IN
-                SELECT c.conname
-                FROM pg_constraint c
-                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
-                WHERE c.conrelid = 'students'::regclass
-                  AND c.contype = 'f'
-                  AND a.attname = 'teacher_id'
-              LOOP
-                EXECUTE format('ALTER TABLE students DROP CONSTRAINT %I', r.conname);
-              END LOOP;
-            END $$;
-            """
-        )
-        conn.exec_driver_sql(
-            "ALTER TABLE students ADD CONSTRAINT students_teacher_id_fkey "
-            "FOREIGN KEY (teacher_id) REFERENCES profiles(id) ON DELETE SET NULL"
-        )
-    except Exception:
-        db.rollback()
-        conn = db.connection()
     conn.exec_driver_sql(
         "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES students(id) ON DELETE SET NULL"
     )
@@ -162,6 +204,7 @@ def patch_db_defaults(db: Session) -> None:
         "CREATE UNIQUE INDEX IF NOT EXISTS users_family_code_uidx ON users (family_code) WHERE family_code IS NOT NULL"
     )
     db.commit()
+    _ensure_student_schema(db)
 
 
 def ensure_courses(db: Session) -> None:
