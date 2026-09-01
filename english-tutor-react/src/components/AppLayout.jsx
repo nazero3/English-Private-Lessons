@@ -3,7 +3,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } 
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { coursebookSubjectFromPath } from '../lib/coursebookRoutes'
-import { homePath, canAccessCoursebookGrade, canAccessPrivateLessons } from '../lib/permissions'
+import { homePath, canAccessCoursebookGrade, canAccessPrivateLessons, appDisplayName } from '../lib/permissions'
 
 function navClass({ isActive }) {
   return `btn secondary${isActive ? ' is-nav-on' : ''}`
@@ -215,6 +215,10 @@ export function AppLayout() {
     loadNotifications()
   }, [profile, openNotes])
 
+  useEffect(() => {
+    document.title = appDisplayName(profile?.role)
+  }, [profile?.role])
+
   const unreadCount = notifications.filter((n) => !n.read).length
   const tabs = primaryNav(profile?.role)
   const extra = secondaryLinks(profile?.role)
@@ -251,7 +255,7 @@ export function AppLayout() {
       <header className="topbar no-print">
         <div>
           <Link className="brand" to={home}>
-            Kinz Teacher Platform
+            {appDisplayName(profile?.role)}
           </Link>
           <div className="muted" style={{ fontSize: '0.85rem' }}>
             {profile?.full_name}

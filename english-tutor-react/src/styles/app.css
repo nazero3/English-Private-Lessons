@@ -79,8 +79,9 @@ h3,
 }
 
 .brand {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   color: var(--ink);
+  line-height: 1.2;
 }
 
 .muted {

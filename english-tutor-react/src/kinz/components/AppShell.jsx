@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
 import { KINZ_LOGO, kinzPath } from '../lib/format'
@@ -14,11 +15,16 @@ export default function AppShell({ children }) {
   const { family, signOut } = useAuth()
   const name = family?.parent?.full_name || 'عائلة كينز'
 
+  useEffect(() => {
+    document.title = 'Kinz Platform'
+  }, [])
+
   return (
     <div className="app-shell">
       <header className="app-head">
-        <Link to={kinzPath('/app')}>
-          <img src={KINZ_LOGO} alt="كينز" />
+        <Link to={kinzPath('/app')} className="app-head__brand">
+          <img src={KINZ_LOGO} alt="Kinz Platform" />
+          <strong>Kinz Platform</strong>
         </Link>
         <div style={{ textAlign: 'left' }}>
           <strong>{name}</strong>

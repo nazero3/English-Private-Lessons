@@ -224,7 +224,7 @@ export default function ManagerHome() {
     <div className="manager-dash">
       <header className="manager-dash__hero">
         <div>
-          <h1>Manager</h1>
+          <h1>Kinz Teacher Platform</h1>
           <p className="muted">Turn access on for each teacher. Add staff in the Staff tab.</p>
         </div>
       </header>

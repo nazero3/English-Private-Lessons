@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
-import { homePath } from '../lib/permissions'
+import { homePath, appDisplayName } from '../lib/permissions'
 
 export default function LoginPage() {
   const { signIn, user, profile, loading } = useAuth()
@@ -10,6 +10,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    document.title = appDisplayName(profile?.role)
+  }, [profile?.role])
 
   if (!loading && user && profile) {
     return <Navigate to={homePath(profile.role)} replace />

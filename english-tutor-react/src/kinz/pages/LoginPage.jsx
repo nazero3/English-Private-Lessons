@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
 import { KINZ_LOGO, WHATSAPP, kinzPath } from '../lib/format'
@@ -11,6 +11,10 @@ export default function LoginPage() {
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    document.title = 'Kinz Platform'
+  }, [])
 
   if (profile?.role === 'parent') {
     return <Navigate to={kinzPath('/app')} replace />
@@ -33,10 +37,10 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <img src={KINZ_LOGO} alt="كينز" />
-        <h1 style={{ textAlign: 'center' }}>دخول الأهل</h1>
+        <img src={KINZ_LOGO} alt="Kinz Platform" />
+        <h1 style={{ textAlign: 'center' }}>Kinz Platform</h1>
         <p className="muted" style={{ textAlign: 'center' }}>
-          رقم الموبايل ورمز من 6 أرقام. يمكنك استخدام رمز العائلة إن أعطاك المركز إياه.
+          دخول الأهل — رقم الموبايل ورمز من 6 أرقام. يمكنك استخدام رمز العائلة إن أعطاك المركز إياه.
         </p>
         <form onSubmit={onSubmit}>
           <div className="field">
