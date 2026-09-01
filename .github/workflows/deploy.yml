@@ -1,0 +1,109 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: english-tutor-react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: english-tutor-react/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile backend
+        run: python -m compileall -q backend/app
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Require deploy secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          missing=0
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_APP_DIR; do
+            if [ -z "${!name}" ]; then
+              echo "Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Add secrets under Settings → Secrets and variables → Actions. See english-tutor-react/docs/DEPLOY.md"
+            exit 1
+          fi
+
+      - name: Pull and rebuild on VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          command_timeout: 25m
+          envs: VPS_APP_DIR
+          script: |
+            set -euo pipefail
+            cd "$VPS_APP_DIR"
+
+            if [ -d english-tutor-react ]; then
+              REPO="$PWD"
+              APP="$PWD/english-tutor-react"
+            else
+              APP="$PWD"
+              REPO="$(git -C "$APP" rev-parse --show-toplevel)"
+            fi
+
+            echo "Repo: $REPO"
+            echo "App:  $APP"
+            cd "$REPO"
+            git fetch origin
+            git checkout main
+            git pull --ff-only origin main
+            echo "Now at $(git rev-parse --short HEAD) $(git log -1 --format='%s')"
+
+            cd "$APP"
+            bash scripts/deploy/deploy.sh
+        env:
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+
+      - name: Verify public site
+        env:
+          VERIFY_URL: ${{ vars.VERIFY_URL || 'https://kinz-teach.cloud' }}
+        run: |
+          set -euo pipefail
+          echo "Checking ${VERIFY_URL}/api/health"
+          curl -sf "${VERIFY_URL}/api/health"
+          echo
+          code="$(curl -sf -o /dev/null -w '%{http_code}' "${VERIFY_URL}/")"
+          if [ "$code" != "200" ]; then
+            echo "Frontend returned HTTP $code"
+            exit 1
+          fi
+          echo "Frontend HTTP $code"

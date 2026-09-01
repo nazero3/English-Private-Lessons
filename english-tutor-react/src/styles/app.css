@@ -1328,6 +1328,15 @@ h3,
   min-width: 10rem;
 }
 
+.log-class__hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+}
+
+.log-class__new-student {
+  margin-top: 0.45rem;
+}
+
 .recent-class-list {
   list-style: none;
   margin: 0;

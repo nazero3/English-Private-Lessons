@@ -57,13 +57,30 @@ def _score_dict(row: StudentScore) -> dict:
 
 
 def _session_for_student(session: LessonSession, db: Session, *, include_answers: bool) -> dict:
-    lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first()
+    lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first() if session.lesson_id else None
     course = db.query(Course).filter(Course.id == lesson.course_id).first() if lesson else None
     homework_items = lesson.homework if lesson else []
+    catalog_course = (
+        {"id": None, "title": session.course_title, "grade": ""}
+        if not course and (session.course_title or "")
+        else None
+    )
+    catalog_lesson = (
+        {
+            "id": None,
+            "course_id": None,
+            "unit_number": session.unit_number,
+            "theme": session.unit_label or "Lesson",
+            "grammar": "",
+            "course": catalog_course,
+        }
+        if not lesson and (session.unit_label or session.unit_number is not None)
+        else None
+    )
     return {
         "id": str(session.id),
         "teacher_id": str(session.teacher_id),
-        "lesson_id": str(session.lesson_id),
+        "lesson_id": str(session.lesson_id) if session.lesson_id else None,
         "student_id": str(session.student_id) if session.student_id else None,
         "student_name": session.student_name,
         "worksheet_score": float(session.worksheet_score) if session.worksheet_score is not None else None,
@@ -92,14 +109,14 @@ def _session_for_student(session: LessonSession, db: Session, *, include_answers
             else None,
         }
         if lesson
-        else None,
+        else catalog_lesson,
         "course": {
             "id": str(course.id),
             "title": course.title,
             "grade": course.grade,
         }
         if course
-        else None,
+        else catalog_course,
     }
 
 

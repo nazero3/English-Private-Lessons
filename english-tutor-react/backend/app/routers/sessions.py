@@ -14,9 +14,46 @@ from ..schemas import SessionCreate, SessionFeedback, SessionUpdate
 
 router = APIRouter(tags=["sessions"])
 
+CURRICULUM_FLAGS = {
+    "english_file": "can_access_private_lessons",
+    "math_grade9": "can_access_math_grade9",
+    "math_grade12": "can_access_math_grade12",
+    "physics_grade12": "can_access_physics_grade12",
+}
+
+
+def _can_log_curriculum(profile: Profile, curriculum: str | None) -> bool:
+    if profile.role == AppRole.manager:
+        return True
+    flag = CURRICULUM_FLAGS.get(curriculum or "")
+    if not flag:
+        return False
+    return bool(getattr(profile, flag, False))
+
+
+def _catalog_course(session: LessonSession) -> dict | None:
+    title = (session.course_title or "").strip()
+    if not title:
+        return None
+    return {"id": None, "title": title, "grade": ""}
+
+
+def _catalog_lesson(session: LessonSession) -> dict | None:
+    theme = (session.unit_label or "").strip()
+    if not theme and session.unit_number is None:
+        return None
+    return {
+        "id": None,
+        "course_id": None,
+        "unit_number": session.unit_number,
+        "theme": theme or "Lesson",
+        "grammar": "",
+        "course": _catalog_course(session),
+    }
+
 
 def _session_dict(session: LessonSession, db: Session) -> dict:
-    lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first()
+    lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first() if session.lesson_id else None
     course = db.query(Course).filter(Course.id == lesson.course_id).first() if lesson else None
     teacher = db.query(Profile).options(joinedload(Profile.user)).filter(Profile.id == session.teacher_id).first()
     manager = (
@@ -26,10 +63,32 @@ def _session_dict(session: LessonSession, db: Session) -> dict:
     )
     from ..auth import profile_to_dict
 
+    course_payload = (
+        {
+            "id": str(course.id),
+            "title": course.title,
+            "grade": course.grade,
+        }
+        if course
+        else _catalog_course(session)
+    )
+    lesson_payload = (
+        {
+            "id": str(lesson.id),
+            "course_id": str(lesson.course_id),
+            "unit_number": lesson.unit_number,
+            "theme": lesson.theme,
+            "grammar": lesson.grammar,
+            "course": course_payload,
+        }
+        if lesson
+        else _catalog_lesson(session)
+    )
+
     return {
         "id": str(session.id),
         "teacher_id": str(session.teacher_id),
-        "lesson_id": str(session.lesson_id),
+        "lesson_id": str(session.lesson_id) if session.lesson_id else None,
         "student_id": str(session.student_id) if session.student_id else None,
         "student_name": session.student_name,
         "worksheet_score": float(session.worksheet_score) if session.worksheet_score is not None else None,
@@ -46,35 +105,16 @@ def _session_dict(session: LessonSession, db: Session) -> dict:
         "manager_feedback": session.manager_feedback,
         "manager_feedback_at": session.manager_feedback_at.isoformat() if session.manager_feedback_at else None,
         "manager_id": str(session.manager_id) if session.manager_id else None,
-        "lesson": {
-            "id": str(lesson.id),
-            "course_id": str(lesson.course_id),
-            "unit_number": lesson.unit_number,
-            "theme": lesson.theme,
-            "grammar": lesson.grammar,
-            "course": {
-                "id": str(course.id),
-                "title": course.title,
-                "grade": course.grade,
-            }
-            if course
-            else None,
-        }
-        if lesson
-        else None,
+        "course_title": session.course_title or "",
+        "unit_label": session.unit_label or "",
+        "lesson": lesson_payload,
         "teacher": profile_to_dict(teacher, teacher.user.email if teacher and teacher.user else None)
         if teacher
         else None,
         "manager": profile_to_dict(manager, manager.user.email if manager and manager.user else None)
         if manager
         else None,
-        "course": {
-            "id": str(course.id),
-            "title": course.title,
-            "grade": course.grade,
-        }
-        if course
-        else None,
+        "course": course_payload,
     }
 
 
@@ -180,18 +220,44 @@ def hours_summary(
 def create_session(body: SessionCreate, profile: Profile = Depends(get_current_profile), db: Session = Depends(get_db)):
     if profile.role not in (AppRole.manager, AppRole.teacher):
         raise HTTPException(status_code=403, detail="Students cannot create sessions")
-    lesson = db.query(Lesson).filter(Lesson.id == body.lesson_id).first()
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-    if profile.role != AppRole.manager and not teacher_has_course(db, profile.id, lesson.course_id):
-        raise HTTPException(status_code=403, detail="Course not assigned")
+
+    lesson = None
+    course_title = (body.course_title or "").strip()
+    unit_label = (body.unit_label or "").strip()
+    unit_number = body.unit_number
+    if body.lesson_id:
+        lesson = db.query(Lesson).filter(Lesson.id == body.lesson_id).first()
+        if not lesson:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        if profile.role != AppRole.manager and not teacher_has_course(db, profile.id, lesson.course_id):
+            raise HTTPException(status_code=403, detail="Course not assigned")
+        if not course_title:
+            course = db.query(Course).filter(Course.id == lesson.course_id).first()
+            course_title = course.title if course else ""
+        if not unit_label:
+            unit_label = lesson.theme
+        if unit_number is None:
+            unit_number = lesson.unit_number
+    elif course_title:
+        if body.curriculum:
+            if body.curriculum not in CURRICULUM_FLAGS:
+                raise HTTPException(status_code=400, detail="Unknown course")
+            if not _can_log_curriculum(profile, body.curriculum):
+                raise HTTPException(status_code=403, detail="This course is not enabled for you")
+        elif profile.role != AppRole.manager:
+            raise HTTPException(status_code=400, detail="Choose a course")
+    else:
+        raise HTTPException(status_code=400, detail="Choose a course")
 
     student, student_name = _resolve_student(db, profile, body.student_id, body.student_name)
     teacher_id = student.teacher_id if student else profile.id
 
     session = LessonSession(
         teacher_id=teacher_id,
-        lesson_id=body.lesson_id,
+        lesson_id=lesson.id if lesson else None,
+        course_title=course_title,
+        unit_label=unit_label,
+        unit_number=unit_number,
         student_id=student.id if student else None,
         student_name=student_name,
         worksheet_score=body.worksheet_score,
@@ -302,9 +368,16 @@ def add_feedback(
     session.manager_feedback_at = datetime.now(UTC)
     session.manager_id = manager.id
 
-    lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first()
+    lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first() if session.lesson_id else None
     course = db.query(Course).filter(Course.id == lesson.course_id).first() if lesson else None
-    label = f"{course.title} · Unit {lesson.unit_number}" if lesson and course else "a lesson"
+    if lesson and course:
+        label = f"{course.title} · Unit {lesson.unit_number}"
+    elif session.course_title:
+        label = session.course_title
+        if session.unit_label:
+            label = f"{label} · {session.unit_label}"
+    else:
+        label = "a lesson"
 
     db.add(
         Notification(

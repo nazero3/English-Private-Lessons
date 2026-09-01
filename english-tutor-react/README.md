@@ -35,6 +35,8 @@ bash scripts/deploy/verify.sh YOUR_SERVER_IP
 
 For HTTPS after buying a domain, set `DOMAIN`, `ACME_EMAIL`, and `CORS_ORIGINS` in `.env`, then run `bash scripts/deploy/deploy.sh`.
 
+After GitHub secrets are set (see **[docs/DEPLOY.md](docs/DEPLOY.md)** — section *Continuous deploy*), a push to `main` builds the app and deploys on the VPS automatically.
+
 - **Frontend:** React/Vite static build served by Nginx
 - **Backend:** FastAPI + JWT auth
 - **Database:** PostgreSQL in Docker

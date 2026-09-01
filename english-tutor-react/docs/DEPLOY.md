@@ -182,10 +182,79 @@ Open http://localhost:5173
 | `docker-compose.yml` | Base stack (HTTP / IP-only) |
 | `docker-compose.prod.yml` | Caddy HTTPS overlay |
 | `Caddyfile` | Auto-TLS reverse proxy |
-| `scripts/deploy/` | Bootstrap, deploy, backup, verify |
+| `scripts/deploy/` | Bootstrap, deploy, backup, verify, CI remote-update |
 | `backend/` | FastAPI app |
 | `nginx/nginx.conf` | Static files + API reverse proxy |
 | `public/books/` | Course PDFs, bind-mounted into Nginx (not stored in the image) |
+
+## Continuous deploy (GitHub Actions)
+
+A push to `main` (or **Actions → CI / CD → Run workflow**) builds the frontend, then SSHs into the VPS, runs `git pull`, and `bash scripts/deploy/deploy.sh`. `.env` on the server is never overwritten.
+
+You still commit and push from your laptop. You do not SSH for routine deploys.
+
+### 1. Deploy key on the VPS
+
+On your laptop (do not reuse your personal SSH key):
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-kinz" -f github-deploy -N ""
+```
+
+Copy the **public** key onto the VPS (same user that can run Docker, usually the account you SSH in with today):
+
+```bash
+ssh YOUR_USER@YOUR_VPS 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys' < github-deploy.pub
+```
+
+Confirm that user can deploy:
+
+```bash
+ssh -i github-deploy YOUR_USER@YOUR_VPS 'docker info >/dev/null && echo docker_ok'
+```
+
+If that fails: `sudo usermod -aG docker YOUR_USER`, then log out and back in.
+
+### 2. GitHub secrets
+
+Repo → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Example | Meaning |
+|--------|---------|---------|
+| `VPS_HOST` | `kinz-teach.cloud` or the droplet IP | SSH hostname |
+| `VPS_USER` | `root` or `deploy` | SSH user (must be in the `docker` group) |
+| `VPS_SSH_KEY` | contents of `github-deploy` (the **private** file) | Full PEM, including `BEGIN` / `END` lines |
+| `VPS_APP_DIR` | `/root/English-Private-Lessons` | Directory you `git clone`d into (the folder that contains `english-tutor-react/`) |
+| `VPS_PORT` | `22` | Optional. Only if SSH is not on port 22 |
+
+Optional **variable** (not a secret): `VERIFY_URL` = `https://kinz-teach.cloud`. If unset, the workflow uses that URL after deploy.
+
+Paste the private key, then delete `github-deploy` from the laptop (or store it in a password manager). Never commit it.
+
+### 3. First pipeline
+
+Push this workflow to `main`, or on GitHub: **Actions → CI / CD → Run workflow**.
+
+Watch the **Deploy to VPS** job. A red job named “Require deploy secrets” means the secrets above are missing.
+
+### 4. If git pull fails on the server
+
+The pipeline uses `git pull --ff-only`. Local edits on the VPS will block it. Either commit those changes elsewhere or, on the VPS:
+
+```bash
+cd /path/to/English-Private-Lessons
+git status
+git stash   # only if you intend to throw away server-only edits
+```
+
+Then re-run the workflow.
+
+Manual update (same as CI, without GitHub):
+
+```bash
+cd english-tutor-react
+bash scripts/deploy/remote-update.sh
+```
 
 ## Cost estimate
 

@@ -117,7 +117,11 @@ class SetAssignmentRequest(BaseModel):
 class SessionCreate(BaseModel):
     model_config = {"extra": "ignore"}
 
-    lesson_id: UUID
+    lesson_id: UUID | None = None
+    curriculum: str | None = None
+    course_title: str | None = None
+    unit_label: str | None = None
+    unit_number: int | None = None
     student_id: UUID | None = None
     student_name: str = "Student"
     worksheet_score: float | None = None

@@ -475,9 +475,10 @@ export const localApi = {
     })
   },
 
-  async listCourses({ asManager, teacherId }) {
+  async listCourses(profile) {
     const db = read()
-    if (asManager) return db.courses
+    if (profile?.asManager || profile?.role === 'manager') return db.courses
+    const teacherId = profile?.teacherId || profile?.id
     const assigned = new Set(
       db.assignments.filter((a) => a.teacher_id === teacherId).map((a) => a.course_id),
     )
@@ -889,15 +890,25 @@ export const localApi = {
     if (profile?.role === 'teacher') {
       rows = rows.filter((s) => s.teacher_id === profile.id)
     }
-    return rows.map((s) => ({
-      ...s,
-      lesson: db.lessons.find((l) => l.id === s.lesson_id),
-      teacher: db.profiles.find((p) => p.id === s.teacher_id),
-      manager: db.profiles.find((p) => p.id === s.manager_id),
-      course: db.courses.find(
-        (c) => c.id === db.lessons.find((l) => l.id === s.lesson_id)?.course_id,
-      ),
-    }))
+    return rows.map((s) => {
+      const packLesson = db.lessons.find((l) => l.id === s.lesson_id)
+      const packCourse = db.courses.find((c) => c.id === packLesson?.course_id)
+      return {
+        ...s,
+        lesson:
+          packLesson ||
+          (s.unit_label || s.unit_number != null
+            ? {
+                theme: s.unit_label || 'Lesson',
+                unit_number: s.unit_number,
+                course: s.course_title ? { title: s.course_title } : null,
+              }
+            : null),
+        teacher: db.profiles.find((p) => p.id === s.teacher_id),
+        manager: db.profiles.find((p) => p.id === s.manager_id),
+        course: packCourse || (s.course_title ? { title: s.course_title } : null),
+      }
+    })
   },
 
   async hoursSummary({ from, to } = {}) {

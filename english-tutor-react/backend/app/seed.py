@@ -110,6 +110,14 @@ def patch_db_defaults(db: Session) -> None:
     conn.exec_driver_sql(
         "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS hours numeric(4,2)"
     )
+    conn.exec_driver_sql("ALTER TABLE lesson_sessions ALTER COLUMN lesson_id DROP NOT NULL")
+    conn.exec_driver_sql(
+        "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS course_title text NOT NULL DEFAULT ''"
+    )
+    conn.exec_driver_sql(
+        "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS unit_label text NOT NULL DEFAULT ''"
+    )
+    conn.exec_driver_sql("ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS unit_number integer")
     conn.exec_driver_sql(
         "CREATE UNIQUE INDEX IF NOT EXISTS students_user_id_uidx ON students (user_id) WHERE user_id IS NOT NULL"
     )

@@ -1,0 +1,14 @@
+# Local teaching files — not part of the deployed app
+/*.pdf
+/private-lessons/
+/placement-test/
+/placement test.odt
+/kinz to do
+
+node_modules/
+dist/
+.venv/
+.env
+.env.local
+*.log
+.DS_Store
