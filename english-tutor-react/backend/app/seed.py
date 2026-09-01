@@ -226,7 +226,8 @@ def ensure_courses(db: Session) -> None:
 def seed_users(db: Session) -> None:
     if not settings.seed_demo_users:
         return
-    if not db.query(Profile).filter(Profile.id == MANAGER_ID).first():
+    first_install = not db.query(Profile).filter(Profile.id == MANAGER_ID).first()
+    if first_install:
         ensure_courses(db)
 
         db.add(
@@ -283,8 +284,8 @@ def seed_users(db: Session) -> None:
                 )
 
         db.commit()
+        ensure_demo_student(db)
 
-    ensure_demo_student(db)
     ensure_demo_parent(db)
     ensure_demo_operations(db)
     ensure_family_catalog(db)

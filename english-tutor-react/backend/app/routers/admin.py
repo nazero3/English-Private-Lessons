@@ -121,13 +121,33 @@ def _prepare_teacher_delete_schema() -> None:
         "ALTER TABLE students ALTER COLUMN teacher_id DROP NOT NULL",
         "ALTER TABLE lesson_sessions ALTER COLUMN manager_id DROP NOT NULL",
         "ALTER TABLE students ALTER COLUMN user_id DROP NOT NULL",
+        """
+        DO $$
+        DECLARE r record;
+        BEGIN
+          FOR r IN
+            SELECT c.conname
+            FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+            WHERE c.conrelid = 'students'::regclass
+              AND c.contype = 'f'
+              AND a.attname = 'teacher_id'
+          LOOP
+            EXECUTE format('ALTER TABLE students DROP CONSTRAINT %I', r.conname);
+          END LOOP;
+        END $$;
+        """,
+        "ALTER TABLE students ADD CONSTRAINT students_teacher_id_fkey "
+        "FOREIGN KEY (teacher_id) REFERENCES profiles(id) ON DELETE SET NULL",
     )
     with engine.begin() as conn:
         for sql in statements:
+            nested = conn.begin_nested()
             try:
                 conn.exec_driver_sql(sql)
+                nested.commit()
             except Exception:
-                pass
+                nested.rollback()
 
 
 def _sql(db: Session, sql: str, params: dict | None = None) -> None:

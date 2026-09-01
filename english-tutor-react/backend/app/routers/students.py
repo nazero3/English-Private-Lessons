@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
-from ..database import engine, get_db
+from ..database import get_db
 from ..deps import get_current_profile, require_staff
 from ..models import (
     AppRole,
@@ -230,10 +230,29 @@ def _create_login(db: Session, email: str, password: str, full_name: str) -> UUI
 
 @router.get("/students")
 def list_students(profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
-    q = db.query(Student).order_by(Student.teacher_id.is_(None).desc(), Student.full_name)
+    q = db.query(Student)
     if profile.role != AppRole.manager:
         q = q.filter(Student.teacher_id == profile.id)
-    return [_student_dict(s, db) for s in q.all()]
+    rows = q.all()
+    rows.sort(key=lambda s: (s.teacher_id is not None, (s.full_name or "").lower()))
+    out = []
+    for row in rows:
+        try:
+            out.append(_student_dict(row, db))
+        except Exception:
+            out.append(
+                {
+                    "id": str(row.id),
+                    "teacher_id": str(row.teacher_id) if row.teacher_id else None,
+                    "user_id": str(row.user_id) if row.user_id else None,
+                    "full_name": row.full_name,
+                    "email": None,
+                    "has_login": False,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                    "teacher": None,
+                }
+            )
+    return out
 
 
 @router.post("/students", status_code=201)
@@ -244,12 +263,13 @@ def create_student(body: StudentCreate, profile: Profile = Depends(require_staff
 
     teacher_id = profile.id
     if profile.role == AppRole.manager:
-        if not body.teacher_id:
-            raise HTTPException(status_code=400, detail="Choose a teacher for this student")
-        teacher = db.query(Profile).filter(Profile.id == body.teacher_id, Profile.role == AppRole.teacher).first()
-        if not teacher:
-            raise HTTPException(status_code=404, detail="Teacher not found")
-        teacher_id = teacher.id
+        if body.teacher_id:
+            teacher = db.query(Profile).filter(Profile.id == body.teacher_id, Profile.role == AppRole.teacher).first()
+            if not teacher:
+                raise HTTPException(status_code=404, detail="Teacher not found")
+            teacher_id = teacher.id
+        else:
+            teacher_id = None
     elif body.teacher_id and body.teacher_id != profile.id:
         raise HTTPException(status_code=403, detail="Teachers can only create their own students")
 
@@ -301,11 +321,6 @@ def update_student(
 ):
     student = _get_managed_student(db, profile, student_id)
     data = body.model_dump(exclude_unset=True)
-    if "teacher_id" in data and data["teacher_id"] is None:
-        from ..seed import _ensure_student_schema
-
-        _ensure_student_schema(db)
-        student = _get_managed_student(db, profile, student_id)
     if body.full_name is not None:
         name = body.full_name.strip()
         if not name:
@@ -384,72 +399,121 @@ def _quote_ident(name: str) -> str:
     return '"' + str(name).replace('"', '""') + '"'
 
 
-def _run_sql(conn, sql: str, params: dict | None = None) -> None:
-    nested = conn.begin_nested()
+def _sql(db: Session, sql: str, params: dict | None = None) -> None:
+    nested = db.begin_nested()
     try:
-        conn.execute(text(sql), params or {})
+        db.execute(text(sql), params or {})
         nested.commit()
     except Exception:
         nested.rollback()
+
+
+def _db_error_detail(exc: Exception) -> str:
+    orig = getattr(exc, "orig", None) or exc
+    msg = str(orig).split("\n", 1)[0]
+    lowered = msg.lower()
+    if "lock timeout" in lowered or "statement timeout" in lowered:
+        return "Could not delete this student because the database was busy. Try again."
+    return f"Could not delete this student: {msg}"
+
+
+def _student_fk_rows(db: Session):
+    return db.execute(
+        text(
+            """
+            SELECT rel.relname AS table_name, att.attname AS column_name, att.attnotnull AS not_null
+            FROM pg_constraint c
+            JOIN pg_class rel ON rel.oid = c.conrelid
+            JOIN pg_namespace n ON n.oid = rel.relnamespace
+            JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS cols(attnum, ord) ON true
+            JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = cols.attnum
+            WHERE c.contype = 'f'
+              AND c.confrelid = 'students'::regclass
+              AND n.nspname = 'public'
+            """
+        )
+    ).all()
+
+
+def _profile_fk_rows(db: Session):
+    return db.execute(
+        text(
+            """
+            SELECT rel.relname AS table_name, att.attname AS column_name, att.attnotnull AS not_null
+            FROM pg_constraint c
+            JOIN pg_class rel ON rel.oid = c.conrelid
+            JOIN pg_namespace n ON n.oid = rel.relnamespace
+            JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS cols(attnum, ord) ON true
+            JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = cols.attnum
+            WHERE c.contype = 'f'
+              AND c.confrelid = 'profiles'::regclass
+              AND n.nspname = 'public'
+              AND rel.relname <> 'profiles'
+            """
+        )
+    ).all()
+
+
+def _detach_student_row(db: Session, student_id: UUID) -> None:
+    params = {"sid": student_id}
+    keep_hours = {"lesson_sessions", "credit_ledger"}
+    for sql in (
+        "DELETE FROM student_scores WHERE student_id = :sid",
+        "DELETE FROM parent_students WHERE student_id = :sid",
+        "DELETE FROM public_spotlights WHERE student_id = :sid",
+        "UPDATE lesson_sessions SET student_id = NULL WHERE student_id = :sid",
+        "UPDATE credit_ledger SET student_id = NULL WHERE student_id = :sid",
+        "UPDATE students SET user_id = NULL WHERE id = :sid",
+    ):
+        _sql(db, sql, params)
+    for table, column, not_null in _student_fk_rows(db):
+        if table == "students":
+            continue
+        tbl = _quote_ident(table)
+        col = _quote_ident(column)
+        if table in keep_hours or not not_null:
+            _sql(db, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :sid", params)
+        else:
+            _sql(db, f"DELETE FROM {tbl} WHERE {col} = :sid", params)
+    db.execute(text("DELETE FROM students WHERE id = :sid"), params)
+
+
+def _delete_student_login(db: Session, user_id: UUID) -> None:
+    role = db.execute(text("SELECT role FROM profiles WHERE id = :uid"), {"uid": user_id}).scalar()
+    if str(getattr(role, "value", role)) != AppRole.student.value:
+        return
+    params = {"uid": user_id}
+    _sql(db, "DELETE FROM notifications WHERE user_id = :uid", params)
+    keep = {"lesson_sessions", "student_scores", "credit_ledger", "students"}
+    for table, column, not_null in _profile_fk_rows(db):
+        if table == "students" and column == "teacher_id":
+            continue
+        tbl = _quote_ident(table)
+        col = _quote_ident(column)
+        if table == "students" and column == "user_id":
+            _sql(db, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :uid", params)
+        elif not not_null:
+            _sql(db, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :uid", params)
+        elif table not in keep:
+            _sql(db, f"DELETE FROM {tbl} WHERE {col} = :uid", params)
+    db.execute(text("DELETE FROM users WHERE id = :uid"), params)
 
 
 @router.delete("/students/{student_id}")
 def delete_student(student_id: UUID, profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
     student = _get_managed_student(db, profile, student_id)
     user_id = student.user_id
-    db.expunge_all()
-    params = {"sid": student_id, "uid": user_id}
-    keep_hours = {"lesson_sessions", "credit_ledger"}
+    if db.in_transaction():
+        db.rollback()
     try:
-        with engine.begin() as conn:
-            for sql in (
-                "ALTER TABLE lesson_sessions ALTER COLUMN student_id DROP NOT NULL",
-                "ALTER TABLE credit_ledger ALTER COLUMN student_id DROP NOT NULL",
-                "ALTER TABLE public_spotlights ALTER COLUMN student_id DROP NOT NULL",
-                "ALTER TABLE students ALTER COLUMN user_id DROP NOT NULL",
-            ):
-                _run_sql(conn, sql)
-            for sql in (
-                "DELETE FROM student_scores WHERE student_id = :sid",
-                "DELETE FROM parent_students WHERE student_id = :sid",
-                "DELETE FROM public_spotlights WHERE student_id = :sid",
-                "UPDATE lesson_sessions SET student_id = NULL WHERE student_id = :sid",
-                "UPDATE credit_ledger SET student_id = NULL WHERE student_id = :sid",
-                "UPDATE students SET user_id = NULL WHERE id = :sid",
-            ):
-                _run_sql(conn, sql, params)
-            fks = conn.execute(
-                text(
-                    """
-                    SELECT rel.relname AS table_name, att.attname AS column_name, att.attnotnull AS not_null
-                    FROM pg_constraint c
-                    JOIN pg_class rel ON rel.oid = c.conrelid
-                    JOIN pg_namespace n ON n.oid = rel.relnamespace
-                    JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS cols(attnum, ord) ON true
-                    JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = cols.attnum
-                    WHERE c.contype = 'f'
-                      AND c.confrelid = 'students'::regclass
-                      AND n.nspname = 'public'
-                    """
-                )
-            ).all()
-            for table, column, not_null in fks:
-                if table == "students":
-                    continue
-                tbl = _quote_ident(table)
-                col = _quote_ident(column)
-                if table in keep_hours or not not_null:
-                    _run_sql(conn, f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :sid", params)
-                else:
-                    _run_sql(conn, f"DELETE FROM {tbl} WHERE {col} = :sid", params)
+        with db.begin():
+            db.connection().exec_driver_sql("SET LOCAL lock_timeout = '4s'")
+            db.connection().exec_driver_sql("SET LOCAL statement_timeout = '12s'")
+            _detach_student_row(db, student_id)
             if user_id:
-                _run_sql(conn, "DELETE FROM notifications WHERE user_id = :uid", params)
-            conn.execute(text("DELETE FROM students WHERE id = :sid"), {"sid": student_id})
-            if user_id:
-                conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
+                _delete_student_login(db, user_id)
     except Exception as exc:
-        orig = getattr(exc, "orig", None) or exc
-        raise HTTPException(status_code=409, detail=f"Could not delete this student: {orig}") from None
+        raise HTTPException(status_code=409, detail=_db_error_detail(exc)) from None
     return {"id": str(student_id)}
 
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
@@ -10,11 +10,13 @@ export default function StudentsPage() {
   const isManager = profile?.role === 'manager'
   const base = isManager ? '/manager/students' : '/teacher/students'
   const back = isManager ? '/manager' : '/teacher'
+  const location = useLocation()
   const [students, setStudents] = useState([])
   const [teachers, setTeachers] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [busyId, setBusyId] = useState('')
 
   const load = async () => {
     try {
@@ -33,6 +35,10 @@ export default function StudentsPage() {
     load()
   }, [profile])
 
+  useEffect(() => {
+    if (location.state?.message) setMessage(location.state.message)
+  }, [location.state])
+
   const createStudent = async (e) => {
     e.preventDefault()
     setError('')
@@ -42,7 +48,7 @@ export default function StudentsPage() {
         full_name: form.full_name.trim(),
         email: form.email.trim() || undefined,
         password: form.password || undefined,
-        teacher_id: isManager ? form.teacher_id || undefined : undefined,
+        teacher_id: isManager ? form.teacher_id || null : undefined,
       })
       setForm(emptyForm)
       await load()
@@ -61,6 +67,30 @@ export default function StudentsPage() {
       setMessage(teacherId ? 'Teacher assigned.' : 'Teacher cleared.')
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const removeStudent = async (student) => {
+    const ok = window.confirm(
+      `Delete ${student.full_name}? This removes their login and test scores. Class hours are kept.`,
+    )
+    if (!ok) return
+    setError('')
+    setMessage('')
+    setBusyId(student.id)
+    try {
+      await api.deleteStudent(student.id)
+      await load()
+      setMessage(`${student.full_name} was removed.`)
+    } catch (err) {
+      setError(err.message)
+      try {
+        await load()
+      } catch {
+        /* keep the delete error visible */
+      }
+    } finally {
+      setBusyId('')
     }
   }
 
@@ -109,9 +139,8 @@ export default function StudentsPage() {
                   id="stu-teacher"
                   value={form.teacher_id}
                   onChange={(e) => setForm({ ...form, teacher_id: e.target.value })}
-                  required
                 >
-                  <option value="">Choose a teacher</option>
+                  <option value="">No teacher yet</option>
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.full_name}
@@ -166,7 +195,10 @@ export default function StudentsPage() {
       <section className="panel">
         <h2>Roster ({students.length})</h2>
         {!students.length ? (
-          <p className="muted">No students yet.</p>
+          <p className="muted">
+            No students in the roster. Add them above. If you deleted a teacher while students were
+            still assigned, those students were removed and need to be added again.
+          </p>
         ) : (
           <ul className="teacher-account-list">
             {students.map((s) => (
@@ -206,6 +238,15 @@ export default function StudentsPage() {
                   <Link className="btn secondary" to={`${base}/${s.id}`}>
                     Open profile
                   </Link>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    aria-label={`Delete ${s.full_name}`}
+                    disabled={Boolean(busyId)}
+                    onClick={() => removeStudent(s)}
+                  >
+                    {busyId === s.id ? 'Deleting…' : 'Delete'}
+                  </button>
                 </div>
               </li>
             ))}

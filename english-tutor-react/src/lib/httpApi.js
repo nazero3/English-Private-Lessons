@@ -15,6 +15,24 @@ function setToken(token) {
   else localStorage.removeItem(TOKEN_KEY)
 }
 
+function _errorMessage(res, data, text) {
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    return 'The server took too long. Refresh the page and try again. The last change may not have been saved.'
+  }
+  const detail = data?.detail ?? data?.message
+  const raw =
+    typeof detail === 'string'
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((item) => item?.msg || item).join(' ')
+        : text
+  if (typeof raw === 'string' && /<html/i.test(raw)) {
+    return `Request failed (${res.status}). Refresh and try again.`
+  }
+  if (typeof raw === 'string' && raw.trim()) return raw
+  return res.statusText || 'Request failed'
+}
+
 async function request(path, options = {}) {
   const headers = { ...(options.headers || {}) }
   if (options.body != null) {
@@ -39,8 +57,7 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    const msg = data?.detail || data?.message || res.statusText || 'Request failed'
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    throw new Error(_errorMessage(res, data, text))
   }
   return data
 }

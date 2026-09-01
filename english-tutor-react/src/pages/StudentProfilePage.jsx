@@ -46,6 +46,7 @@ export default function StudentProfilePage() {
   const [editingSession, setEditingSession] = useState(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
     const portal = await api.getStudent(studentId)
@@ -122,13 +123,16 @@ export default function StudentProfilePage() {
   }
 
   const removeStudent = async () => {
-    const ok = window.confirm(`Delete ${data?.student.full_name}? This removes their login and test scores.`)
+    const ok = window.confirm(`Delete ${data?.student.full_name}? This removes their login and test scores. Class hours are kept.`)
     if (!ok) return
+    setError('')
+    setDeleting(true)
     try {
       await api.deleteStudent(studentId)
-      navigate(base, { replace: true })
+      navigate(base, { replace: true, state: { message: `${data?.student.full_name || 'Student'} was removed.` } })
     } catch (err) {
       setError(err.message)
+      setDeleting(false)
     }
   }
 
@@ -291,8 +295,8 @@ export default function StudentProfilePage() {
             <button className="btn" type="submit">
               Save account
             </button>
-            <button type="button" className="btn ghost" onClick={removeStudent}>
-              Delete student
+            <button type="button" className="btn ghost" onClick={removeStudent} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete student'}
             </button>
           </div>
         </form>
