@@ -1,12 +1,22 @@
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
 from ..database import get_db
 from ..deps import get_current_profile, require_manager
-from ..models import AppRole, Profile, TeacherCourseAssignment, User
+from ..models import (
+    AppRole,
+    LessonSession,
+    Notification,
+    Profile,
+    Student,
+    StudentScore,
+    TeacherCourseAssignment,
+    User,
+)
 from ..schemas import (
     CreateOperationsRequest,
     CreateTeacherRequest,
@@ -103,6 +113,47 @@ def update_teacher(
     return profile_to_dict(profile, user.email)
 
 
+def _detach_teacher(db: Session, teacher: Profile, manager: Profile) -> list[str]:
+    """Unassign students; keep class history under the manager so hours are not lost."""
+    names = []
+    for student in db.query(Student).filter(Student.teacher_id == teacher.id).all():
+        names.append(student.full_name)
+        student.teacher_id = None
+    if names:
+        shown = ", ".join(names[:12])
+        extra = f" and {len(names) - 12} more" if len(names) > 12 else ""
+        db.add(
+            Notification(
+                user_id=manager.id,
+                session_id=None,
+                type="unassigned_students",
+                title="Students need a teacher",
+                message=(
+                    f"{teacher.full_name} was removed. Assign a teacher to "
+                    f"{len(names)} student{'s' if len(names) != 1 else ''}: {shown}{extra}."
+                ),
+            )
+        )
+    db.query(StudentScore).filter(StudentScore.teacher_id == teacher.id).update(
+        {StudentScore.teacher_id: manager.id},
+        synchronize_session=False,
+    )
+    db.query(LessonSession).filter(LessonSession.teacher_id == teacher.id).update(
+        {LessonSession.teacher_id: manager.id},
+        synchronize_session=False,
+    )
+    db.query(LessonSession).filter(LessonSession.manager_id == teacher.id).update(
+        {LessonSession.manager_id: None},
+        synchronize_session=False,
+    )
+    db.query(TeacherCourseAssignment).filter(TeacherCourseAssignment.teacher_id == teacher.id).delete(
+        synchronize_session=False
+    )
+    db.query(Notification).filter(Notification.user_id == teacher.id).delete(synchronize_session=False)
+    db.flush()
+    return names
+
+
 @router.delete("/teachers/{teacher_id}")
 def delete_teacher(teacher_id: UUID, manager: Profile = Depends(require_manager), db: Session = Depends(get_db)):
     if teacher_id == manager.id:
@@ -111,10 +162,24 @@ def delete_teacher(teacher_id: UUID, manager: Profile = Depends(require_manager)
     if not profile:
         raise HTTPException(status_code=404, detail="Teacher not found")
     user = db.query(User).filter(User.id == teacher_id).first()
-    if user:
-        db.delete(user)
-    db.commit()
-    return {"id": str(teacher_id)}
+    try:
+        unassigned = _detach_teacher(db, profile, manager)
+        if user:
+            db.delete(user)
+        else:
+            db.delete(profile)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This teacher still has linked records that could not be cleared. Try again after checking Students.",
+        ) from None
+    return {
+        "id": str(teacher_id),
+        "unassigned_count": len(unassigned),
+        "unassigned_names": unassigned,
+    }
 
 
 @router.get("/assignments")
@@ -282,7 +347,15 @@ def update_operations(
 def delete_operations(ops_id: UUID, manager: Profile = Depends(require_manager), db: Session = Depends(get_db)):
     if ops_id == manager.id:
         raise HTTPException(status_code=400, detail="You cannot delete the account you are signed in with")
-    _profile, user = _ops_or_404(db, ops_id)
-    db.delete(user)
-    db.commit()
+    profile, user = _ops_or_404(db, ops_id)
+    try:
+        db.query(Notification).filter(Notification.user_id == ops_id).delete(synchronize_session=False)
+        db.delete(user)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This operations account could not be deleted because other records still point at it.",
+        ) from None
     return {"id": str(ops_id)}

@@ -101,6 +101,37 @@ def patch_db_defaults(db: Session) -> None:
     conn.exec_driver_sql(
         "ALTER TABLE students ADD COLUMN IF NOT EXISTS user_id uuid UNIQUE REFERENCES profiles(id) ON DELETE SET NULL"
     )
+    try:
+        conn.exec_driver_sql("ALTER TABLE students ALTER COLUMN teacher_id DROP NOT NULL")
+    except Exception:
+        db.rollback()
+        conn = db.connection()
+    try:
+        conn.exec_driver_sql(
+            """
+            DO $$
+            DECLARE r record;
+            BEGIN
+              FOR r IN
+                SELECT c.conname
+                FROM pg_constraint c
+                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+                WHERE c.conrelid = 'students'::regclass
+                  AND c.contype = 'f'
+                  AND a.attname = 'teacher_id'
+              LOOP
+                EXECUTE format('ALTER TABLE students DROP CONSTRAINT %I', r.conname);
+              END LOOP;
+            END $$;
+            """
+        )
+        conn.exec_driver_sql(
+            "ALTER TABLE students ADD CONSTRAINT students_teacher_id_fkey "
+            "FOREIGN KEY (teacher_id) REFERENCES profiles(id) ON DELETE SET NULL"
+        )
+    except Exception:
+        db.rollback()
+        conn = db.connection()
     conn.exec_driver_sql(
         "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES students(id) ON DELETE SET NULL"
     )

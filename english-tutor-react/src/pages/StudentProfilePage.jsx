@@ -115,7 +115,7 @@ export default function StudentProfilePage() {
           full_name: account.full_name.trim(),
           email: account.email.trim() || undefined,
           password: account.password || undefined,
-          teacher_id: isManager ? account.teacher_id : undefined,
+          teacher_id: isManager ? account.teacher_id || null : undefined,
         }),
       'Student account updated.',
     )
@@ -200,14 +200,23 @@ export default function StudentProfilePage() {
           <h1>{student.full_name}</h1>
           <p className="muted">
             {student.email || 'No login yet'}
-            {student.teacher?.full_name ? ` · ${student.teacher.full_name}` : ''}
+            {student.teacher?.full_name ? ` · ${student.teacher.full_name}` : isManager ? ' · No teacher' : ''}
           </p>
         </div>
-        <span className="badge">{student.has_login ? 'Can sign in' : 'No login'}</span>
+        <span className={`badge${!student.teacher_id && isManager ? ' is-warn' : ''}`}>
+          {!student.teacher_id && isManager
+            ? 'Needs a teacher'
+            : student.has_login
+              ? 'Can sign in'
+              : 'No login'}
+        </span>
       </header>
 
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
+      {isManager && !student.teacher_id ? (
+        <p className="notice">This student has no teacher. Assign one below so they appear on a teacher roster.</p>
+      ) : null}
 
       <section className="score-summary">
         <div className="score-card">
@@ -268,6 +277,7 @@ export default function StudentProfilePage() {
                   value={account.teacher_id}
                   onChange={(e) => setAccount({ ...account, teacher_id: e.target.value })}
                 >
+                  <option value="">No teacher</option>
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.full_name}

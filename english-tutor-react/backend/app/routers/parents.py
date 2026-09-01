@@ -71,7 +71,7 @@ def _parent_dict(db: Session, profile: Profile) -> dict:
             "student_id": str(student.id),
             "full_name": student.full_name,
             "relationship": link.relationship,
-            "teacher_id": str(student.teacher_id),
+            "teacher_id": str(student.teacher_id) if student.teacher_id else None,
         }
         for student, link in links
     ]

@@ -224,7 +224,8 @@ function localPortal(db, student) {
     .filter(
       (s) =>
         s.student_id === student.id ||
-        (s.teacher_id === student.teacher_id &&
+        (student.teacher_id &&
+          s.teacher_id === student.teacher_id &&
           String(s.student_name || '').toLowerCase() === student.full_name.toLowerCase()),
     )
     .map((s) => {
@@ -397,13 +398,46 @@ export const localApi = {
         throw new Error('You cannot delete the account you are signed in with')
       }
 
+      const manager = db.profiles.find((p) => p.role === 'manager')
+      const unassigned = (db.students || []).filter((s) => s.teacher_id === teacherId)
+      unassigned.forEach((s) => {
+        s.teacher_id = null
+      })
+      if (manager) {
+        db.sessions = (db.sessions || []).map((s) =>
+          s.teacher_id === teacherId ? { ...s, teacher_id: manager.id } : s,
+        )
+        db.scores = (db.scores || []).map((s) =>
+          s.teacher_id === teacherId ? { ...s, teacher_id: manager.id } : s,
+        )
+        if (unassigned.length) {
+          const names = unassigned.map((s) => s.full_name).filter(Boolean)
+          const shown = names.slice(0, 12).join(', ')
+          const extra = names.length > 12 ? ` and ${names.length - 12} more` : ''
+          if (!Array.isArray(db.notifications)) db.notifications = []
+          db.notifications.unshift({
+            id: uid('note'),
+            user_id: manager.id,
+            session_id: null,
+            type: 'unassigned_students',
+            title: 'Students need a teacher',
+            message: `${profile.full_name} was removed. Assign a teacher to ${names.length} student${
+              names.length === 1 ? '' : 's'
+            }: ${shown}${extra}.`,
+            read: false,
+            created_at: new Date().toISOString(),
+          })
+        }
+      }
       db.users = db.users.filter((u) => u.id !== teacherId)
       db.profiles = db.profiles.filter((p) => p.id !== teacherId)
       db.assignments = db.assignments.filter((a) => a.teacher_id !== teacherId)
-      db.sessions = db.sessions.filter((s) => s.teacher_id !== teacherId)
-      db.students = (db.students || []).filter((s) => s.teacher_id !== teacherId)
       db.notifications = (db.notifications || []).filter((n) => n.user_id !== teacherId)
-      return { id: teacherId }
+      return {
+        id: teacherId,
+        unassigned_count: unassigned.length,
+        unassigned_names: unassigned.map((s) => s.full_name),
+      }
     })
   },
 
@@ -632,14 +666,22 @@ export const localApi = {
 
   async listStudents(profile) {
     const db = read()
-    const rows = db.students || []
+    const decorate = (s) => ({
+      ...s,
+      teacher: s.teacher_id ? db.profiles.find((p) => p.id === s.teacher_id) || null : null,
+    })
+    const rows = (db.students || []).map(decorate)
+    const sortRoster = (a, b) => {
+      const au = a.teacher_id ? 1 : 0
+      const bu = b.teacher_id ? 1 : 0
+      if (au !== bu) return au - bu
+      return String(a.full_name).localeCompare(String(b.full_name))
+    }
     if (profile?.role === 'manager') {
-      return [...rows].sort((a, b) => a.full_name.localeCompare(b.full_name))
+      return [...rows].sort(sortRoster)
     }
     const teacherId = profile?.id
-    return rows
-      .filter((s) => s.teacher_id === teacherId)
-      .sort((a, b) => a.full_name.localeCompare(b.full_name))
+    return rows.filter((s) => s.teacher_id === teacherId).sort(sortRoster)
   },
 
   async createStudent(profile, payload) {
@@ -704,7 +746,9 @@ export const localApi = {
       const student = (db.students || []).find((s) => s.id === studentId)
       if (!student) throw new Error('Student not found')
       if (payload.full_name) student.full_name = payload.full_name.trim()
-      if (payload.teacher_id) student.teacher_id = payload.teacher_id
+      if (Object.prototype.hasOwnProperty.call(payload, 'teacher_id')) {
+        student.teacher_id = payload.teacher_id || null
+      }
       const email = String(payload.email || '').trim().toLowerCase()
       if (student.user_id) {
         const user = db.users.find((u) => u.id === student.user_id)
@@ -955,15 +999,17 @@ export const localApi = {
     }
   },
 
-  async listNotifications(userId) {
+  async listNotifications(profileOrId) {
     const db = read()
+    const userId = typeof profileOrId === 'string' ? profileOrId : profileOrId?.id
     return (db.notifications || [])
       .filter((n) => n.user_id === userId)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
   },
 
-  async markNotificationRead(notificationId, userId) {
+  async markNotificationRead(profile, notificationId) {
     return withDb((db) => {
+      const userId = typeof profile === 'string' ? profile : profile?.id
       const note = (db.notifications || []).find(
         (n) => n.id === notificationId && n.user_id === userId,
       )
@@ -973,8 +1019,9 @@ export const localApi = {
     })
   },
 
-  async markAllNotificationsRead(userId) {
+  async markAllNotificationsRead(profile) {
     return withDb((db) => {
+      const userId = typeof profile === 'string' ? profile : profile?.id
       for (const note of db.notifications || []) {
         if (note.user_id === userId) note.read = true
       }

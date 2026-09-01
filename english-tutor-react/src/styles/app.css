@@ -98,6 +98,21 @@ h3,
   border: 1px solid rgba(251, 176, 59, 0.35);
 }
 
+.badge.is-warn {
+  background: #fff4e5;
+  color: #9a5b00;
+  border-color: rgba(225, 158, 53, 0.55);
+}
+
+.notice {
+  color: #9a5b00;
+  background: #fff8ec;
+  border: 1px solid rgba(225, 158, 53, 0.35);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+}
+
 .panel {
   background: var(--card);
   border: 1px solid var(--line);
@@ -1163,6 +1178,10 @@ h3,
 .teacher-account-list li:last-child {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+.roster-teacher-select {
+  max-width: 11rem;
 }
 
 .library-block {

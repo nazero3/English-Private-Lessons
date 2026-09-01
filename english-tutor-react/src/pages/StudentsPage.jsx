@@ -52,6 +52,20 @@ export default function StudentsPage() {
     }
   }
 
+  const assignTeacher = async (studentId, teacherId) => {
+    setError('')
+    setMessage('')
+    try {
+      await api.updateStudent(studentId, { teacher_id: teacherId || null })
+      await load()
+      setMessage(teacherId ? 'Teacher assigned.' : 'Teacher cleared.')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const needsTeacher = students.filter((s) => !s.teacher_id)
+
   return (
     <div>
       <p className="muted">
@@ -68,6 +82,12 @@ export default function StudentsPage() {
 
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
+      {isManager && needsTeacher.length ? (
+        <p className="notice">
+          {needsTeacher.length} student{needsTeacher.length === 1 ? '' : 's'} need a teacher
+          assigned.
+        </p>
+      ) : null}
 
       <section className="panel">
         <h2>Add student</h2>
@@ -155,11 +175,34 @@ export default function StudentsPage() {
                   <strong>{s.full_name}</strong>
                   <div className="muted">
                     {s.email || 'No login yet'}
-                    {isManager && s.teacher?.full_name ? ` · ${s.teacher.full_name}` : ''}
+                    {isManager
+                      ? s.teacher?.full_name
+                        ? ` · ${s.teacher.full_name}`
+                        : ' · No teacher'
+                      : ''}
                   </div>
                 </div>
                 <div className="actions">
-                  <span className="badge">{s.has_login ? 'Can sign in' : 'No login'}</span>
+                  {!s.teacher_id && isManager ? (
+                    <span className="badge is-warn">Needs a teacher</span>
+                  ) : (
+                    <span className="badge">{s.has_login ? 'Can sign in' : 'No login'}</span>
+                  )}
+                  {isManager ? (
+                    <select
+                      className="roster-teacher-select"
+                      value={s.teacher_id || ''}
+                      aria-label={`Teacher for ${s.full_name}`}
+                      onChange={(e) => assignTeacher(s.id, e.target.value)}
+                    >
+                      <option value="">No teacher</option>
+                      {teachers.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                   <Link className="btn secondary" to={`${base}/${s.id}`}>
                     Open profile
                   </Link>

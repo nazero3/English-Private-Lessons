@@ -139,10 +139,14 @@ def _score_summary(sessions: list[dict], tests: list[dict]) -> dict:
 
 def _student_dict(row: Student, db: Session) -> dict:
     login = db.query(User).filter(User.id == row.user_id).first() if row.user_id else None
-    teacher = db.query(Profile).options(joinedload(Profile.user)).filter(Profile.id == row.teacher_id).first()
+    teacher = (
+        db.query(Profile).options(joinedload(Profile.user)).filter(Profile.id == row.teacher_id).first()
+        if row.teacher_id
+        else None
+    )
     return {
         "id": str(row.id),
-        "teacher_id": str(row.teacher_id),
+        "teacher_id": str(row.teacher_id) if row.teacher_id else None,
         "user_id": str(row.user_id) if row.user_id else None,
         "full_name": row.full_name,
         "email": login.email if login else None,
@@ -161,7 +165,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
         .order_by(LessonSession.session_date.desc())
         .all()
     )
-    if not sessions:
+    if not sessions and student.teacher_id:
         sessions = (
             db.query(LessonSession)
             .filter(
@@ -215,7 +219,7 @@ def _create_login(db: Session, email: str, password: str, full_name: str) -> UUI
 
 @router.get("/students")
 def list_students(profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
-    q = db.query(Student).order_by(Student.full_name)
+    q = db.query(Student).order_by(Student.teacher_id.is_(None).desc(), Student.full_name)
     if profile.role != AppRole.manager:
         q = q.filter(Student.teacher_id == profile.id)
     return [_student_dict(s, db) for s in q.all()]
@@ -306,13 +310,29 @@ def update_student(
             if login_profile:
                 login_profile.full_name = name
 
-    if body.teacher_id is not None:
+    data = body.model_dump(exclude_unset=True)
+    if "teacher_id" in data:
         if profile.role != AppRole.manager:
             raise HTTPException(status_code=403, detail="Only a manager can reassign a student")
-        teacher = db.query(Profile).filter(Profile.id == body.teacher_id, Profile.role == AppRole.teacher).first()
-        if not teacher:
-            raise HTTPException(status_code=404, detail="Teacher not found")
-        student.teacher_id = teacher.id
+        tid = data["teacher_id"]
+        if tid is None:
+            student.teacher_id = None
+        else:
+            teacher = db.query(Profile).filter(Profile.id == tid, Profile.role == AppRole.teacher).first()
+            if not teacher:
+                raise HTTPException(status_code=404, detail="Teacher not found")
+            clash = (
+                db.query(Student)
+                .filter(
+                    Student.teacher_id == teacher.id,
+                    Student.full_name.ilike(student.full_name),
+                    Student.id != student.id,
+                )
+                .first()
+            )
+            if clash:
+                raise HTTPException(status_code=400, detail="That teacher already has a student with this name")
+            student.teacher_id = teacher.id
 
     email = body.email.lower().strip() if body.email else None
     if email or body.password:
@@ -363,7 +383,7 @@ def add_score(
         raise HTTPException(status_code=400, detail="Test title is required")
     row = StudentScore(
         student_id=student.id,
-        teacher_id=student.teacher_id,
+        teacher_id=student.teacher_id or profile.id,
         title=title,
         score=body.score,
         total=body.total,

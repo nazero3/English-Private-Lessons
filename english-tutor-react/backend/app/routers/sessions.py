@@ -250,7 +250,7 @@ def create_session(body: SessionCreate, profile: Profile = Depends(get_current_p
         raise HTTPException(status_code=400, detail="Choose a course")
 
     student, student_name = _resolve_student(db, profile, body.student_id, body.student_name)
-    teacher_id = student.teacher_id if student else profile.id
+    teacher_id = student.teacher_id if student and student.teacher_id else profile.id
 
     session = LessonSession(
         teacher_id=teacher_id,

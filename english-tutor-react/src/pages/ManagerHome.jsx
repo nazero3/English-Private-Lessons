@@ -42,6 +42,7 @@ export default function ManagerHome() {
   const [editingOpsId, setEditingOpsId] = useState(null)
   const [opsEditForm, setOpsEditForm] = useState(emptyForm)
   const [message, setMessage] = useState('')
+  const [messageHref, setMessageHref] = useState('')
 
   const load = async () => {
     try {
@@ -67,6 +68,7 @@ export default function ManagerHome() {
 
   const runAction = async (fn, successMessage) => {
     setMessage('')
+    setMessageHref('')
     setError('')
     try {
       await fn()
@@ -120,14 +122,29 @@ export default function ManagerHome() {
   }
 
   const deleteTeacher = async (teacher) => {
-    const ok = window.confirm(
-      `Delete ${teacher.full_name}? Their sessions and student links stay unless you remove those separately.`,
-    )
+    let names = []
+    try {
+      const roster = await api.listStudents(profile)
+      names = roster.filter((s) => s.teacher_id === teacher.id).map((s) => s.full_name)
+    } catch {
+      names = []
+    }
+    const extra = names.length
+      ? `\n\n${names.length} student${names.length === 1 ? '' : 's'} will have no teacher until you assign one:\n${names.join(', ')}`
+      : ''
+    const ok = window.confirm(`Delete ${teacher.full_name}? Class history is kept.${extra}`)
     if (!ok) return
     await runAction(async () => {
-      await api.deleteTeacher(teacher.id)
+      const result = await api.deleteTeacher(teacher.id)
       if (editingTeacherId === teacher.id) cancelEdit()
-    }, 'Teacher removed.')
+      const count = result?.unassigned_count ?? names.length
+      if (count) {
+        setMessageHref('/manager/students')
+      }
+      return result
+    }, names.length
+      ? `${names.length} student${names.length === 1 ? '' : 's'} need a new teacher assigned.`
+      : 'Teacher removed.')
   }
 
   const createOperations = async (e) => {
@@ -223,7 +240,17 @@ export default function ManagerHome() {
       </header>
 
       {error ? <p className="error">{error}</p> : null}
-      {message ? <p className="success">{message}</p> : null}
+      {message ? (
+        <p className="success">
+          {message}
+          {messageHref ? (
+            <>
+              {' '}
+              <Link to={messageHref}>Open Students to assign them.</Link>
+            </>
+          ) : null}
+        </p>
+      ) : null}
 
       <nav className="manager-tabs" role="tablist" aria-label="Manager sections">
         {TABS.map((item) => (

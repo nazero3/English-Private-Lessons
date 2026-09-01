@@ -177,7 +177,7 @@ export function AppLayout() {
   const [openMore, setOpenMore] = useState(false)
 
   const loadNotifications = async () => {
-    if (!profile || profile.role !== 'teacher') {
+    if (!profile || (profile.role !== 'teacher' && profile.role !== 'manager')) {
       setNotifications([])
       return
     }
@@ -190,7 +190,7 @@ export function AppLayout() {
 
   useEffect(() => {
     loadNotifications()
-  }, [profile])
+  }, [profile, openNotes])
 
   const unreadCount = notifications.filter((n) => !n.read).length
   const tabs = primaryNav(profile?.role)
@@ -304,7 +304,7 @@ export function AppLayout() {
             ) : null}
           </div>
 
-          {profile?.role === 'teacher' ? (
+          {profile?.role === 'teacher' || profile?.role === 'manager' ? (
             <div className="notify-wrap">
               <button
                 type="button"
@@ -362,10 +362,10 @@ export function AppLayout() {
                   )}
                   <Link
                     className="btn secondary block"
-                    to="/teacher/sessions"
+                    to={profile?.role === 'manager' ? '/manager/students' : '/teacher/sessions'}
                     onClick={() => setOpenNotes(false)}
                   >
-                    Open classes
+                    {profile?.role === 'manager' ? 'Open students' : 'Open classes'}
                   </Link>
                 </div>
               ) : null}
