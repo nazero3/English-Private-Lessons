@@ -306,15 +306,46 @@ def update_session(
         )
         session.student_id = student.id if student else None
         session.student_name = student_name
-    if "lesson_id" in data and data["lesson_id"]:
-        lesson = db.query(Lesson).filter(Lesson.id == data["lesson_id"]).first()
+
+    lesson_id = data.pop("lesson_id", None) if "lesson_id" in data else ...
+    wants_catalog = any(key in data for key in ("curriculum", "course_title", "unit_label", "unit_number"))
+    if lesson_id is not ... and lesson_id:
+        lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
         if not lesson:
             raise HTTPException(status_code=404, detail="Lesson not found")
         if profile.role != AppRole.manager and not teacher_has_course(db, profile.id, lesson.course_id):
             raise HTTPException(status_code=403, detail="Course not assigned")
-        session.lesson_id = data.pop("lesson_id")
+        session.lesson_id = lesson.id
+        course = db.query(Course).filter(Course.id == lesson.course_id).first()
+        session.course_title = course.title if course else ""
+        session.unit_label = lesson.theme
+        session.unit_number = lesson.unit_number
+    elif wants_catalog or lesson_id is None:
+        curriculum = data.pop("curriculum", None)
+        course_title = (data.pop("course_title", session.course_title) or "").strip()
+        unit_label = (data.pop("unit_label", session.unit_label) or "").strip()
+        unit_number = data.pop("unit_number", session.unit_number)
+        if curriculum:
+            if curriculum not in CURRICULUM_FLAGS:
+                raise HTTPException(status_code=400, detail="Unknown course")
+            if not _can_log_curriculum(profile, curriculum):
+                raise HTTPException(status_code=403, detail="This course is not enabled for you")
+        elif wants_catalog and profile.role != AppRole.manager and not course_title:
+            raise HTTPException(status_code=400, detail="Choose a course")
+        if wants_catalog or lesson_id is None:
+            session.lesson_id = None
+            if course_title:
+                session.course_title = course_title
+            if unit_label:
+                session.unit_label = unit_label
+            if unit_number is not None:
+                session.unit_number = unit_number
     else:
-        data.pop("lesson_id", None)
+        data.pop("curriculum", None)
+        data.pop("course_title", None)
+        data.pop("unit_label", None)
+        data.pop("unit_number", None)
+
     for field, value in data.items():
         if field in {
             "notes",

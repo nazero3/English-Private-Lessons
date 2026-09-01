@@ -108,6 +108,9 @@ export default function TeacherHome() {
                   {s.course?.title ? ` · ${s.course.title}` : ''}
                 </span>
                 <strong>{s.hours != null ? `${formatHours(s.hours)}h` : '—'}</strong>
+                <Link className="btn ghost" to={`/teacher/sessions?edit=${s.id}`}>
+                  Edit
+                </Link>
               </li>
             ))}
           </ul>

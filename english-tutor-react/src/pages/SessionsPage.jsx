@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import LogClassForm from '../components/teacher/LogClassForm'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
@@ -22,6 +22,8 @@ export default function SessionsPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [feedbackDrafts, setFeedbackDrafts] = useState({})
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [editingId, setEditingId] = useState(searchParams.get('edit') || '')
 
   const load = async () => {
     try {
@@ -84,6 +86,18 @@ export default function SessionsPage() {
     URL.revokeObjectURL(url)
   }
 
+  const editingSession = sessions.find((s) => s.id === editingId) || null
+
+  const startEdit = (sessionId) => {
+    setEditingId(sessionId)
+    setSearchParams(sessionId ? { edit: sessionId } : {}, { replace: true })
+  }
+
+  const stopEdit = () => {
+    setEditingId('')
+    setSearchParams({}, { replace: true })
+  }
+
   const monthHours = useMemo(() => {
     const start = new Date()
     start.setDate(1)
@@ -121,7 +135,24 @@ export default function SessionsPage() {
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
 
-      {canLogSession ? (
+      {canLogSession && editingSession ? (
+        <section className="panel log-class-panel">
+          <h2>Fix class · {editingSession.student_name}</h2>
+          <p className="muted">Change the hours or the course if the original log was wrong.</p>
+          <LogClassForm
+            key={editingSession.id}
+            profile={profile}
+            editingSession={editingSession}
+            onSaved={() => {
+              stopEdit()
+              load()
+            }}
+            onCancel={stopEdit}
+          />
+        </section>
+      ) : null}
+
+      {canLogSession && !editingSession ? (
         <section className="panel log-class-panel">
           <h2>Log a class</h2>
           <LogClassForm profile={profile} onSaved={load} />
@@ -140,11 +171,12 @@ export default function SessionsPage() {
                   <th>Student</th>
                   <th>Course</th>
                   <th>Hours</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {sessions.map((s) => (
-                  <tr key={s.id}>
+                  <tr key={s.id} className={s.id === editingId ? 'is-selected' : ''}>
                     <td>{new Date(s.session_date || s.created_at).toLocaleDateString()}</td>
                     <td>
                       {s.student_name}
@@ -155,6 +187,15 @@ export default function SessionsPage() {
                       {s.lesson?.unit_number != null ? ` · U${s.lesson.unit_number}` : ''}
                     </td>
                     <td>{formatHours(s.hours)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => (s.id === editingId ? stopEdit() : startEdit(s.id))}
+                      >
+                        {s.id === editingId ? 'Cancel' : 'Edit'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

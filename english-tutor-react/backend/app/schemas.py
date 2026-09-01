@@ -152,6 +152,10 @@ class SessionUpdate(BaseModel):
     homework_assigned: str | None = None
     session_date: datetime | None = None
     hours: float | None = Field(default=None, ge=0.5, le=24)
+    curriculum: str | None = None
+    course_title: str | None = None
+    unit_label: str | None = None
+    unit_number: int | None = None
 
 
 class SessionFeedback(BaseModel):

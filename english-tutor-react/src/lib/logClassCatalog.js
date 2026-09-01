@@ -84,3 +84,24 @@ export function unitsForLogCourse(course) {
   if (!course || course.kind !== 'catalog') return []
   return fileUnits(course.catalog, course.unitPrefix || '')
 }
+
+export function courseKeyFromSession(session, catalog) {
+  const courseId = session.lesson?.course_id || session.course?.id
+  if (session.lesson_id && courseId) {
+    const pack = catalog.find((c) => c.kind === 'pack' && c.id === courseId)
+    if (pack) return pack.key
+  }
+  const title = (session.course?.title || session.course_title || '').trim()
+  if (!title) return catalog[0]?.key || ''
+  const match = catalog.find((c) => c.title === title)
+  return match?.key || catalog[0]?.key || ''
+}
+
+export function unitIdFromSession(session, units) {
+  if (session.lesson_id && units.some((u) => String(u.id) === String(session.lesson_id))) {
+    return session.lesson_id
+  }
+  const n = session.lesson?.unit_number ?? session.unit_number
+  const byNum = units.find((u) => u.unit_number === n)
+  return byNum?.id || units[0]?.id || ''
+}

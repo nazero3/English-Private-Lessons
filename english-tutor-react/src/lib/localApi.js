@@ -805,6 +805,20 @@ export const localApi = {
       const session = db.sessions.find((s) => s.id === sessionId)
       if (!session) throw new Error('Session not found')
       Object.assign(session, payload)
+      if (payload.lesson_id) {
+        const lesson = db.lessons.find((l) => l.id === payload.lesson_id)
+        if (lesson) {
+          session.lesson = lesson
+          session.course = db.courses.find((c) => c.id === lesson.course_id) || session.course
+        }
+      } else if (payload.course_title) {
+        session.lesson_id = null
+        session.course = { title: payload.course_title }
+        session.lesson = {
+          unit_number: payload.unit_number,
+          theme: payload.unit_label || 'Lesson',
+        }
+      }
       return session
     })
   },

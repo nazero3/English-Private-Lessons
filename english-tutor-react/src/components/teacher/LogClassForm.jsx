@@ -1,12 +1,32 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../lib/api'
-import { buildLogCourses, unitsForLogCourse } from '../../lib/logClassCatalog'
+import {
+  buildLogCourses,
+  courseKeyFromSession,
+  unitIdFromSession,
+  unitsForLogCourse,
+} from '../../lib/logClassCatalog'
 
 function todayInputValue() {
   const d = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function toDateInput(value) {
+  if (!value) return todayInputValue()
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function hoursInput(value) {
+  if (value == null || value === '') return '1'
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '1'
+  return Number.isInteger(n) ? String(n) : String(n)
 }
 
 const HOUR_CHIPS = ['0.5', '1', '1.5', '2']
@@ -21,7 +41,7 @@ function packUnits(lessons) {
   }))
 }
 
-export default function LogClassForm({ profile, onSaved }) {
+export default function LogClassForm({ profile, onSaved, editingSession = null, onCancel }) {
   const [courses, setCourses] = useState([])
   const [lessons, setLessons] = useState([])
   const [students, setStudents] = useState([])
@@ -40,7 +60,7 @@ export default function LogClassForm({ profile, onSaved }) {
     homework_assigned: '',
   })
 
-  const applyCourse = async (courseKey, catalog) => {
+  const applyCourse = async (courseKey, catalog, session = null) => {
     const course = catalog.find((c) => c.key === courseKey)
     if (!course) {
       setLessons([])
@@ -54,7 +74,7 @@ export default function LogClassForm({ profile, onSaved }) {
       setForm((prev) => ({
         ...prev,
         course_key: courseKey,
-        lesson_id: units[0]?.id || '',
+        lesson_id: session ? unitIdFromSession(session, units) : units[0]?.id || '',
       }))
     } catch (e) {
       setError(e.message)
@@ -69,6 +89,24 @@ export default function LogClassForm({ profile, onSaved }) {
     const catalog = buildLogCourses(packRows, profile)
     setCourses(catalog)
     setStudents(studentRows)
+    if (editingSession) {
+      const key = courseKeyFromSession(editingSession, catalog)
+      setForm((prev) => ({
+        ...prev,
+        student_id:
+          editingSession.student_id && studentRows.some((s) => s.id === editingSession.student_id)
+            ? editingSession.student_id
+            : studentRows[0]?.id || NEW_STUDENT,
+        student_name: editingSession.student_name || '',
+        hours: hoursInput(editingSession.hours),
+        session_date: toDateInput(editingSession.session_date || editingSession.created_at),
+        notes: editingSession.notes || '',
+        homework_assigned: editingSession.homework_assigned || '',
+      }))
+      if (key) await applyCourse(key, catalog, editingSession)
+      setShowMore(Boolean(editingSession.notes || editingSession.homework_assigned))
+      return
+    }
     setForm((prev) => {
       const stillThere = prev.student_id && studentRows.some((s) => s.id === prev.student_id)
       return {
@@ -90,7 +128,7 @@ export default function LogClassForm({ profile, onSaved }) {
         setError(e.message)
       }
     })()
-  }, [profile])
+  }, [profile, editingSession?.id])
 
   const onCourseChange = (courseKey) => {
     setError('')
@@ -142,18 +180,24 @@ export default function LogClassForm({ profile, onSaved }) {
         payload.course_title = course.title
         payload.unit_label = unit.theme || unit.label
         payload.unit_number = unit.unit_number
+        if (editingSession) payload.lesson_id = null
       }
 
-      await api.createSession(payload)
-      setForm((prev) => ({
-        ...prev,
-        student_name: prev.student_id === NEW_STUDENT ? '' : prev.student_name,
-        notes: '',
-        homework_assigned: '',
-        hours: '1',
-        session_date: todayInputValue(),
-      }))
-      setMessage(`Saved ${hours} hour${hours === 1 ? '' : 's'} for ${name}.`)
+      if (editingSession) {
+        await api.updateSession(editingSession.id, payload)
+        setMessage(`Updated ${hours} hour${hours === 1 ? '' : 's'} for ${name}.`)
+      } else {
+        await api.createSession(payload)
+        setForm((prev) => ({
+          ...prev,
+          student_name: prev.student_id === NEW_STUDENT ? '' : prev.student_name,
+          notes: '',
+          homework_assigned: '',
+          hours: '1',
+          session_date: todayInputValue(),
+        }))
+        setMessage(`Saved ${hours} hour${hours === 1 ? '' : 's'} for ${name}.`)
+      }
       const studentRows = await api.listStudents(profile)
       setStudents(studentRows)
       onSaved?.()
@@ -329,9 +373,16 @@ export default function LogClassForm({ profile, onSaved }) {
         </>
       ) : null}
 
-      <button className="btn log-class__save" type="submit" disabled={busy || !courses.length}>
-        {busy ? 'Saving…' : 'Save class'}
-      </button>
+      <div className="actions">
+        <button className="btn log-class__save" type="submit" disabled={busy || !courses.length}>
+          {busy ? 'Saving…' : editingSession ? 'Save changes' : 'Save class'}
+        </button>
+        {editingSession && onCancel ? (
+          <button className="btn secondary" type="button" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+        ) : null}
+      </div>
     </form>
   )
 }
