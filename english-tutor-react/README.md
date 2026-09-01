@@ -23,17 +23,24 @@ npm run dev
 
 ### Option A — Self-hosted VPS (recommended, no Supabase bill)
 
-See **[docs/DEPLOY.md](docs/DEPLOY.md)** for Docker Compose on DigitalOcean (or any VPS):
+See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full guide. On a fresh Ubuntu server:
+
+```bash
+git clone https://github.com/nazero3/English-Private-Lessons.git
+cd English-Private-Lessons/english-tutor-react
+sudo bash scripts/deploy/bootstrap-server.sh
+bash scripts/deploy/full-server-deploy.sh
+bash scripts/deploy/verify.sh YOUR_SERVER_IP
+```
+
+For HTTPS after buying a domain, set `DOMAIN`, `ACME_EMAIL`, and `CORS_ORIGINS` in `.env`, then run `bash scripts/deploy/deploy.sh`.
 
 - **Frontend:** React/Vite static build served by Nginx
 - **Backend:** FastAPI + JWT auth
 - **Database:** PostgreSQL in Docker
+- **HTTPS:** Caddy + Let's Encrypt (when `DOMAIN` is set)
 
-```bash
-docker compose up --build
-```
-
-Demo logins: `manager@lesson-sheets.app` / `teacher@lesson-sheets.app` — password `changeme`.
+Demo logins: `manager@lesson-sheets.app` / `teacher@lesson-sheets.app` — password `changeme` (change before sharing).
 
 ### Option B — Supabase (legacy)
 
