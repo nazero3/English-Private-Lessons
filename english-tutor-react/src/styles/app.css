@@ -476,6 +476,14 @@ h3,
   .session-facts {
     grid-template-columns: 1fr;
   }
+
+  .class-history-card .session-card__head {
+    flex-direction: column;
+  }
+
+  .class-history-card .person-row__tools {
+    justify-content: flex-start;
+  }
 }
 
 .session-card__feedback-head {
@@ -509,6 +517,29 @@ h3,
 .session-card.is-selected {
   outline: 2px solid var(--highlight);
   box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.class-history-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.85rem;
+  margin: 0.28rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.class-history-card__meta span {
+  min-width: 0;
+}
+
+.class-history-card .person-row__tools {
+  flex-wrap: nowrap;
+  align-items: center;
+  padding-top: 0.1rem;
+}
+
+.class-history-card .person-row__tools .btn {
+  min-height: 34px;
 }
 
 .sessions-toolbar {

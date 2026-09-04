@@ -25,6 +25,13 @@ function sessionUnitLabel(s) {
   return '—'
 }
 
+function sessionCourseLine(s) {
+  const course = sessionCourseTitle(s)
+  const unit = sessionUnitLabel(s)
+  if (unit && unit !== '—') return `${course} · ${unit}`
+  return course
+}
+
 export default function SessionsPage() {
   const { profile } = useAuth()
   const isManager = profile?.role === 'manager'
@@ -299,74 +306,75 @@ export default function SessionsPage() {
           <h2>History</h2>
           {!sessions.length ? <p className="muted">No classes logged yet.</p> : null}
           {sessions.length ? (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Student</th>
-                  <th>Course</th>
-                  <th>Hours</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => (
-                  <tr
-                    key={s.id}
-                    id={`session-${s.id}`}
-                    className={s.id === editingId || s.id === focusSessionId ? 'is-selected' : ''}
-                  >
-                    <td>{new Date(s.session_date || s.created_at).toLocaleDateString()}</td>
-                    <td>
-                      {s.student_id ? (
-                        <Link to={`/teacher/students/${s.student_id}`}>{s.student_name}</Link>
-                      ) : (
-                        s.student_name
-                      )}
-                      {s.notes ? <div className="muted">Notes: {s.notes}</div> : null}
-                      {s.homework_assigned ? (
-                        <div className="muted">Homework: {s.homework_assigned}</div>
-                      ) : null}
-                      {s.manager_feedback ? (
-                        <div className="session-card__feedback">
-                          <span className="muted">
-                            Manager feedback
-                            {s.manager_feedback_at
-                              ? ` · ${new Date(s.manager_feedback_at).toLocaleString()}`
-                              : ''}
-                          </span>
-                          <p>{s.manager_feedback}</p>
-                        </div>
-                      ) : null}
-                    </td>
-                    <td>
-                      {s.course?.title || 'Course'}
-                      {s.lesson?.unit_number != null ? ` · U${s.lesson.unit_number}` : ''}
-                    </td>
-                    <td>{formatHours(s.hours)}</td>
-                    <td>
-                      <div className="person-row__tools">
-                        <button
-                          type="button"
-                          className="table-link"
-                          onClick={() => (s.id === editingId ? stopEdit() : startEdit(s.id))}
-                        >
-                          {s.id === editingId ? 'Cancel' : 'Edit'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn text-danger"
-                          disabled={Boolean(busyId)}
-                          onClick={() => removeClass(s)}
-                        >
-                          {busyId === s.id ? 'Deleting…' : 'Delete'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="session-list">
+              {sessions.map((s) => (
+                <article
+                  key={s.id}
+                  id={`session-${s.id}`}
+                  className={`session-card class-history-card${s.id === editingId || s.id === focusSessionId ? ' is-selected' : ''}`}
+                >
+                  <div className="session-card__head">
+                    <div>
+                      <strong>
+                        {s.student_id ? (
+                          <Link to={`/teacher/students/${s.student_id}`}>{s.student_name}</Link>
+                        ) : (
+                          s.student_name
+                        )}
+                      </strong>
+                      <p className="class-history-card__meta">
+                        <span>{new Date(s.session_date || s.created_at).toLocaleDateString()}</span>
+                        <span>{sessionCourseLine(s)}</span>
+                        <span>{s.hours != null ? `${formatHours(s.hours)}h` : '—'}</span>
+                      </p>
+                    </div>
+                    <div className="person-row__tools">
+                      <button
+                        type="button"
+                        className="table-link"
+                        onClick={() => (s.id === editingId ? stopEdit() : startEdit(s.id))}
+                      >
+                        {s.id === editingId ? 'Cancel' : 'Edit'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn text-danger"
+                        disabled={Boolean(busyId)}
+                        onClick={() => removeClass(s)}
+                      >
+                        {busyId === s.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {s.notes ? (
+                    <div className="session-card__block">
+                      <span className="muted">Notes</span>
+                      <p>{s.notes}</p>
+                    </div>
+                  ) : null}
+
+                  {s.homework_assigned ? (
+                    <div className="session-card__block">
+                      <span className="muted">Homework</span>
+                      <p>{s.homework_assigned}</p>
+                    </div>
+                  ) : null}
+
+                  {s.manager_feedback ? (
+                    <div className="session-card__feedback">
+                      <span className="muted">
+                        Manager feedback
+                        {s.manager_feedback_at
+                          ? ` · ${new Date(s.manager_feedback_at).toLocaleString()}`
+                          : ''}
+                      </span>
+                      <p>{s.manager_feedback}</p>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
           ) : null}
         </section>
       ) : (
