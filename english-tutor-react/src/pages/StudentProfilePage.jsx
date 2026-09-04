@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import { fmtDate, fmtPct, fmtScore, toDateInput, todayInputValue } from '../lib/studentDisplay'
+import { fmtDate, fmtPct, fmtScore, sessionCourseName, sessionLessonName, toDateInput, todayInputValue } from '../lib/studentDisplay'
 
 const emptyAccount = { full_name: '', email: '', password: '', teacher_id: '' }
 const emptyLesson = {
@@ -205,6 +205,7 @@ export default function StudentProfilePage() {
           <p className="muted">
             {student.email || 'No login yet'}
             {student.teacher?.full_name ? ` · ${student.teacher.full_name}` : isManager ? ' · No teacher yet' : ''}
+            {' · '}Notes and homework from every class are below.
           </p>
         </div>
       </header>
@@ -235,165 +236,13 @@ export default function StudentProfilePage() {
       </section>
 
       <section className="panel">
-        <h2>{isManager ? 'Edit student' : 'Account'}</h2>
-        <form onSubmit={saveAccount}>
-          <div className="grid-2">
-            <div className="field">
-              <label>Full name</label>
-              <input
-                value={account.full_name}
-                onChange={(e) => setAccount({ ...account, full_name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="field">
-              <label>Email</label>
-              <input
-                type="email"
-                value={account.email}
-                onChange={(e) => setAccount({ ...account, email: e.target.value })}
-                placeholder="Required to create a login"
-              />
-            </div>
-          </div>
-          <div className="grid-2">
-            <div className="field">
-              <label>{student.has_login ? 'New password (optional)' : 'Password'}</label>
-              <input
-                type="password"
-                value={account.password}
-                onChange={(e) => setAccount({ ...account, password: e.target.value })}
-                minLength={6}
-                placeholder={student.has_login ? 'Leave blank to keep current password' : 'Needed with email'}
-              />
-            </div>
-            {isManager ? (
-              <div className="field">
-                <label>Teacher</label>
-                <select
-                  value={account.teacher_id}
-                  onChange={(e) => setAccount({ ...account, teacher_id: e.target.value })}
-                >
-                  <option value="">No teacher</option>
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-          </div>
-          <div className="actions">
-            <button className="btn" type="submit">
-              Save account
-            </button>
-            <button type="button" className="btn text-danger" onClick={removeStudent} disabled={deleting}>
-              {deleting ? 'Deleting…' : 'Delete student'}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="panel">
-        <h2>Give a lesson</h2>
-        <p className="muted">Notes and homework appear on the student’s home page.</p>
-        <form onSubmit={addLesson}>
-          <div className="grid-2">
-            <div className="field">
-              <label>Course</label>
-              <select value={lessonForm.course_id} onChange={(e) => onCourseChange(e.target.value)} required>
-                {!courses.length ? <option value="">No courses</option> : null}
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Lesson unit</label>
-              <select
-                value={lessonForm.lesson_id}
-                onChange={(e) => setLessonForm({ ...lessonForm, lesson_id: e.target.value })}
-                required
-              >
-                {lessons.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    Unit {l.unit_number}: {l.theme}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="field">
-            <label>Date</label>
-            <input
-              type="date"
-              value={lessonForm.session_date}
-              onChange={(e) => setLessonForm({ ...lessonForm, session_date: e.target.value })}
-              required
-            />
-          </div>
-          <div className="field">
-            <label>Notes for the student</label>
-            <textarea
-              value={lessonForm.notes}
-              onChange={(e) => setLessonForm({ ...lessonForm, notes: e.target.value })}
-              placeholder="What to review, pronunciation notes, encouragement…"
-            />
-          </div>
-          <div className="field">
-            <label>Homework</label>
-            <textarea
-              value={lessonForm.homework_assigned}
-              onChange={(e) => setLessonForm({ ...lessonForm, homework_assigned: e.target.value })}
-              placeholder="Workbook p.12, or extra writing…"
-            />
-          </div>
-          <div className="grid-4">
-            <div className="field">
-              <label>Quiz score</label>
-              <input
-                type="number"
-                value={lessonForm.quiz_score}
-                onChange={(e) => setLessonForm({ ...lessonForm, quiz_score: e.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label>Quiz total</label>
-              <input
-                type="number"
-                value={lessonForm.quiz_total}
-                onChange={(e) => setLessonForm({ ...lessonForm, quiz_total: e.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label>HW score</label>
-              <input
-                type="number"
-                value={lessonForm.homework_score}
-                onChange={(e) => setLessonForm({ ...lessonForm, homework_score: e.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label>HW total</label>
-              <input
-                type="number"
-                value={lessonForm.homework_total}
-                onChange={(e) => setLessonForm({ ...lessonForm, homework_total: e.target.value })}
-              />
-            </div>
-          </div>
-          <button className="btn" type="submit">
-            Save lesson
-          </button>
-        </form>
-      </section>
-
-      <section className="panel">
-        <h2>Lesson history</h2>
-        {!sessions.length ? <p className="muted">No lessons logged yet.</p> : null}
+        <h2>Notes & homework</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Everything you logged from Home, Classes, or this page. Newest first.
+        </p>
+        {!sessions.length ? (
+          <p className="muted">No classes yet. Log a class from Home, or add one below.</p>
+        ) : null}
         <div className="session-list">
           {sessions.map((s) => {
             const editing = editingSession?.id === s.id
@@ -401,9 +250,9 @@ export default function StudentProfilePage() {
               <article key={s.id} className="session-card">
                 <div className="session-card__head">
                   <div>
-                    <strong>{s.lesson?.theme || 'Lesson'}</strong>
+                    <strong>{sessionLessonName(s)}</strong>
                     <div className="muted" style={{ fontSize: '0.88rem' }}>
-                      {fmtDate(s.session_date)} · {s.course?.title || 'Course'} · U{s.lesson?.unit_number}
+                      {fmtDate(s.session_date)} · {sessionCourseName(s)}
                     </div>
                   </div>
                   <div className="actions">
@@ -506,20 +355,14 @@ export default function StudentProfilePage() {
                   </>
                 ) : (
                   <>
-                    {s.notes ? (
-                      <div className="session-card__block">
-                        <span className="muted">Notes</span>
-                        <p>{s.notes}</p>
-                      </div>
-                    ) : (
-                      <p className="muted">No notes.</p>
-                    )}
-                    {s.homework_assigned ? (
-                      <div className="session-card__block">
-                        <span className="muted">Homework</span>
-                        <p>{s.homework_assigned}</p>
-                      </div>
-                    ) : null}
+                    <div className="session-card__block">
+                      <span className="muted">Notes</span>
+                      <p>{s.notes?.trim() ? s.notes : 'No notes.'}</p>
+                    </div>
+                    <div className="session-card__block">
+                      <span className="muted">Homework</span>
+                      <p>{s.homework_assigned?.trim() ? s.homework_assigned : 'No homework assigned.'}</p>
+                    </div>
                     <p className="muted" style={{ fontSize: '0.88rem' }}>
                       Quiz {fmtScore(s.quiz_score, s.quiz_total)} · HW{' '}
                       {fmtScore(s.homework_score, s.homework_total)}
@@ -530,6 +373,163 @@ export default function StudentProfilePage() {
             )
           })}
         </div>
+      </section>
+
+      <section className="panel">
+        <h2>Give a lesson</h2>
+        <p className="muted">Notes and homework appear on the student’s home page.</p>
+        <form onSubmit={addLesson}>
+          <div className="grid-2">
+            <div className="field">
+              <label>Course</label>
+              <select value={lessonForm.course_id} onChange={(e) => onCourseChange(e.target.value)} required>
+                {!courses.length ? <option value="">No courses</option> : null}
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Lesson unit</label>
+              <select
+                value={lessonForm.lesson_id}
+                onChange={(e) => setLessonForm({ ...lessonForm, lesson_id: e.target.value })}
+                required
+              >
+                {lessons.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    Unit {l.unit_number}: {l.theme}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="field">
+            <label>Date</label>
+            <input
+              type="date"
+              value={lessonForm.session_date}
+              onChange={(e) => setLessonForm({ ...lessonForm, session_date: e.target.value })}
+              required
+            />
+          </div>
+          <div className="field">
+            <label>Notes for the student</label>
+            <textarea
+              value={lessonForm.notes}
+              onChange={(e) => setLessonForm({ ...lessonForm, notes: e.target.value })}
+              placeholder="What to review, pronunciation notes, encouragement…"
+            />
+          </div>
+          <div className="field">
+            <label>Homework</label>
+            <textarea
+              value={lessonForm.homework_assigned}
+              onChange={(e) => setLessonForm({ ...lessonForm, homework_assigned: e.target.value })}
+              placeholder="Workbook p.12, or extra writing…"
+            />
+          </div>
+          <div className="grid-4">
+            <div className="field">
+              <label>Quiz score</label>
+              <input
+                type="number"
+                value={lessonForm.quiz_score}
+                onChange={(e) => setLessonForm({ ...lessonForm, quiz_score: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>Quiz total</label>
+              <input
+                type="number"
+                value={lessonForm.quiz_total}
+                onChange={(e) => setLessonForm({ ...lessonForm, quiz_total: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>HW score</label>
+              <input
+                type="number"
+                value={lessonForm.homework_score}
+                onChange={(e) => setLessonForm({ ...lessonForm, homework_score: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>HW total</label>
+              <input
+                type="number"
+                value={lessonForm.homework_total}
+                onChange={(e) => setLessonForm({ ...lessonForm, homework_total: e.target.value })}
+              />
+            </div>
+          </div>
+          <button className="btn" type="submit">
+            Save lesson
+          </button>
+        </form>
+      </section>
+
+      <section className="panel">
+        <h2>{isManager ? 'Edit student' : 'Account'}</h2>
+        <form onSubmit={saveAccount}>
+          <div className="grid-2">
+            <div className="field">
+              <label>Full name</label>
+              <input
+                value={account.full_name}
+                onChange={(e) => setAccount({ ...account, full_name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Email</label>
+              <input
+                type="email"
+                value={account.email}
+                onChange={(e) => setAccount({ ...account, email: e.target.value })}
+                placeholder="Required to create a login"
+              />
+            </div>
+          </div>
+          <div className="grid-2">
+            <div className="field">
+              <label>{student.has_login ? 'New password (optional)' : 'Password'}</label>
+              <input
+                type="password"
+                value={account.password}
+                onChange={(e) => setAccount({ ...account, password: e.target.value })}
+                minLength={6}
+                placeholder={student.has_login ? 'Leave blank to keep current password' : 'Needed with email'}
+              />
+            </div>
+            {isManager ? (
+              <div className="field">
+                <label>Teacher</label>
+                <select
+                  value={account.teacher_id}
+                  onChange={(e) => setAccount({ ...account, teacher_id: e.target.value })}
+                >
+                  <option value="">No teacher</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </div>
+          <div className="actions">
+            <button className="btn" type="submit">
+              Save account
+            </button>
+            <button type="button" className="btn text-danger" onClick={removeStudent} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete student'}
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="panel">

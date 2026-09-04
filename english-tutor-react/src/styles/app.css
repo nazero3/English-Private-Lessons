@@ -1341,7 +1341,7 @@ button.notify-item:disabled {
 .person-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 0.65rem 1rem;
   padding: 0.9rem 0;
   border-bottom: 1px solid var(--line);
@@ -1373,6 +1373,20 @@ button.notify-item:disabled {
 
 .person-row__main:hover strong {
   color: var(--accent);
+}
+
+.person-row__note {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.person-row__note-label {
+  color: var(--muted);
+  font-weight: 650;
+  margin-right: 0.35rem;
 }
 
 .person-row__tools,

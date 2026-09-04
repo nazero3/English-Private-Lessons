@@ -5,6 +5,7 @@ import { MATH_GRADES } from '../data/mathRegistry'
 import { PHYSICS_GRADES } from '../data/physicsRegistry'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
+import { clipText } from '../lib/studentDisplay'
 import LogClassForm from '../components/teacher/LogClassForm'
 
 function monthStartIso() {
@@ -116,10 +117,21 @@ export default function TeacherHome() {
           <ul className="recent-class-list">
             {recent.map((s) => (
               <li key={s.id}>
-                <span className="recent-class-list__who">{s.student_name}</span>
+                <span className="recent-class-list__who">
+                  {s.student_id ? (
+                    <Link to={`/teacher/students/${s.student_id}`}>{s.student_name}</Link>
+                  ) : (
+                    s.student_name
+                  )}
+                </span>
                 <span className="muted">
                   {new Date(s.session_date || s.created_at).toLocaleDateString()}
                   {s.course?.title ? ` · ${s.course.title}` : ''}
+                  {clipText(s.notes, 80)
+                    ? ` · ${clipText(s.notes, 80)}`
+                    : clipText(s.homework_assigned, 80)
+                      ? ` · HW: ${clipText(s.homework_assigned, 80)}`
+                      : ''}
                 </span>
                 <strong>{s.hours != null ? `${formatHours(s.hours)}h` : '—'}</strong>
                 <Link className="table-link" to={`/teacher/sessions?edit=${s.id}`}>

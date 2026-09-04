@@ -231,6 +231,21 @@ function localPortal(db, student) {
     .map((s) => {
       const lesson = db.lessons.find((l) => l.id === s.lesson_id)
       const course = db.courses.find((c) => c.id === lesson?.course_id)
+      const catalogCourse =
+        !course && (s.course_title || '')
+          ? { id: null, title: s.course_title, grade: '' }
+          : null
+      const catalogLesson =
+        !lesson && (s.unit_label || s.unit_number != null)
+          ? {
+              id: null,
+              course_id: null,
+              unit_number: s.unit_number,
+              theme: s.unit_label || 'Lesson',
+              grammar: '',
+              course: catalogCourse,
+            }
+          : null
       return {
         ...s,
         homework_assigned: s.homework_assigned || '',
@@ -249,10 +264,14 @@ function localPortal(db, student) {
               grammar: lesson.grammar,
               course: course ? { id: course.id, title: course.title, grade: course.grade } : null,
             }
-          : null,
-        course: course ? { id: course.id, title: course.title, grade: course.grade } : null,
+          : catalogLesson,
+        course: course ? { id: course.id, title: course.title, grade: course.grade } : catalogCourse,
       }
     })
+    .sort(
+      (a, b) =>
+        new Date(b.session_date || b.created_at) - new Date(a.session_date || a.created_at),
+    )
   const scores = (db.scores || []).filter((s) => s.student_id === student.id)
   const summary = {
     tests_count: scores.length,

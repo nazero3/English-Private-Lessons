@@ -318,8 +318,15 @@ export default function SessionsPage() {
                   >
                     <td>{new Date(s.session_date || s.created_at).toLocaleDateString()}</td>
                     <td>
-                      {s.student_name}
-                      {s.notes ? <div className="muted">{s.notes}</div> : null}
+                      {s.student_id ? (
+                        <Link to={`/teacher/students/${s.student_id}`}>{s.student_name}</Link>
+                      ) : (
+                        s.student_name
+                      )}
+                      {s.notes ? <div className="muted">Notes: {s.notes}</div> : null}
+                      {s.homework_assigned ? (
+                        <div className="muted">Homework: {s.homework_assigned}</div>
+                      ) : null}
                       {s.manager_feedback ? (
                         <div className="session-card__feedback">
                           <span className="muted">

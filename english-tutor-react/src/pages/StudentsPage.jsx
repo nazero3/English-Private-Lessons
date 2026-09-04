@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
+import { clipText, fmtDate, latestSessionForStudent } from '../lib/studentDisplay'
 
 const emptyForm = { full_name: '', email: '', password: '', teacher_id: '' }
 
@@ -12,6 +13,7 @@ export default function StudentsPage() {
   const back = isManager ? '/manager' : '/teacher'
   const location = useLocation()
   const [students, setStudents] = useState([])
+  const [sessions, setSessions] = useState([])
   const [teachers, setTeachers] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
@@ -20,8 +22,12 @@ export default function StudentsPage() {
 
   const load = async () => {
     try {
-      const rows = await api.listStudents(profile)
+      const [rows, sessionRows] = await Promise.all([
+        api.listStudents(profile),
+        api.listSessions(profile).catch(() => []),
+      ])
       setStudents(rows)
+      setSessions(sessionRows)
       if (isManager) {
         const profiles = await api.listProfiles()
         setTeachers(profiles.filter((p) => p.role === 'teacher'))
@@ -106,8 +112,8 @@ export default function StudentsPage() {
           <h1>{isManager ? 'Students' : 'My students'}</h1>
           <p className="muted">
             {isManager
-              ? 'Tap a name for notes and scores. Assign a teacher from the list.'
-              : 'Tap a name for notes, homework, and scores.'}
+              ? 'Tap a name for notes, homework, and scores. Assign a teacher from the list.'
+              : 'Tap a name to read every note and homework you logged for that student.'}
           </p>
         </div>
       </header>
@@ -199,14 +205,35 @@ export default function StudentsPage() {
           <p className="muted">No students yet. Add one above.</p>
         ) : (
           <ul className="teacher-account-list">
-            {students.map((s) => (
+            {students.map((s) => {
+              const last = latestSessionForStudent(sessions, s)
+              const notes = clipText(last?.notes)
+              const homework = clipText(last?.homework_assigned)
+              return (
               <li key={s.id} className="person-row">
                 <Link className="person-row__main" to={`${base}/${s.id}`}>
                   <strong>{s.full_name}</strong>
                   <span className="muted">
                     {s.email || 'No login yet'}
                     {isManager && !s.teacher_id ? ' · Needs a teacher' : ''}
+                    {last ? ` · Last class ${fmtDate(last.session_date || last.created_at)}` : ''}
                   </span>
+                  {notes ? (
+                    <span className="person-row__note">
+                      <span className="person-row__note-label">Notes</span>
+                      {notes}
+                    </span>
+                  ) : null}
+                  {homework ? (
+                    <span className="person-row__note">
+                      <span className="person-row__note-label">Homework</span>
+                      {homework}
+                    </span>
+                  ) : last && !notes ? (
+                    <span className="muted">No notes or homework on the last class.</span>
+                  ) : !last ? (
+                    <span className="muted">No classes logged yet.</span>
+                  ) : null}
                 </Link>
                 <div className="person-row__tools">
                   {isManager ? (
@@ -236,7 +263,8 @@ export default function StudentsPage() {
                   </button>
                 </div>
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
       </section>

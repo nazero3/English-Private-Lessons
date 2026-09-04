@@ -1,0 +1,109 @@
+================================================================================
+                           THE PAST SIMPLE TENSE
+================================================================================
+
+1. WHEN TO USE IT
+--------------------------------------------------------------------------------
+Use the Past Simple for actions that started and finished at a specific time in the past.
+
+Timeline:
+       PAST                         PRESENT                     FUTURE
+  [ Action Done ] -------------------- x --------------------------->
+ (e.g., "I visited Paris")           (Now)
+
+
+2. REGULAR VERBS (-ED)
+--------------------------------------------------------------------------------
+Add "-ed" to the base form of regular verbs:
+
+  * play   --->  played
+  * walk   --->  walked
+  * watch  --->  watched
+
+Spelling Rules:
+  * Verb ends in -e           ---> Add -d          (live -> lived, dance -> danced)
+  * Verb ends in Consonant+-y ---> Change -y to -ied (study -> studied, try -> tried)
+  * 1-syllable CVC verb       ---> Double final + -ed (stop -> stopped, plan -> planned)
+
+
+3. COMMON IRREGULAR VERBS
+--------------------------------------------------------------------------------
+Irregular verbs do not use "-ed". You must memorize their past forms:
+
+  Base Form     Past Simple     Example
+  ---------     -----------     ----------------------------------------
+  go            went            She went to school yesterday.
+  have          had             We had lunch at 1 PM.
+  see           saw             I saw a movie last night.
+  buy           bought          He bought a new bike.
+  make          made            They made a cake.
+  eat           ate             We ate pizza for dinner.
+
+
+4. SENTENCE STRUCTURE
+--------------------------------------------------------------------------------
+  * Affirmative (+) : Subject + Verb (Past / V2)
+    Example: She visited her friends.
+
+  * Negative (-)    : Subject + did not (didn't) + Verb (Base Form / V1)
+    Example: She didn't visit her friends.
+
+  * Question (?)    : Did + Subject + Verb (Base Form / V1)?
+    Example: Did she visit her friends?
+
+  [!] GOLDEN RULE:
+  When using "did" or "didn't", ALWAYS use the base verb (V1).
+  - Incorrect: She didn't went home.
+  - Correct  : She didn't go home.
+
+
+5. THE SPECIAL VERB: TO BE (WAS / WERE)
+--------------------------------------------------------------------------------
+"To be" does NOT use did/didn't in the past:
+
+  * I / He / She / It   ---> was / wasn't
+  * You / We / They     ---> were / weren't
+
+  Examples:
+  - (+) They were happy yesterday.
+  - (-) He wasn't at home last night.
+  - (?) Were you tired after work?
+
+
+6. COMMON TIME EXPRESSIONS
+--------------------------------------------------------------------------------
+  * Yesterday (yesterday morning, yesterday evening)
+  * Last... (last night, last week, last month, last year)
+  * ... ago (two hours ago, three days ago, five years ago)
+  * In... (in 2020, in July)
+
+
+================================================================================
+                           PRACTICE EXERCISES
+================================================================================
+
+PRACTICE 1: Fill in the Blanks
+Complete the sentences using the Past Simple form of the verb in parentheses.
+
+  1. I ___________________ (watch) a great movie yesterday.
+  2. They ___________________ (not / go) to the beach last weekend.
+  3. _________ you ___________________ (call) me an hour ago?
+  4. She ___________________ (buy) a new laptop last week.
+  5. We ___________________ (be) very tired after the lesson.
+
+--------------------------------------------------------------------------------
+PRACTICE 2: Error Correction
+Find and correct the mistake in each sentence.
+
+  1. He didn't played football yesterday.
+     Correction: _______________________________________________________________
+
+  2. Where did you went last night?
+     Correction: _______________________________________________________________
+
+  3. She was studied for three hours.
+     Correction: _______________________________________________________________
+
+  4. They builded a new house two years ago.
+     Correction: _______________________________________________________________
+================================================================================
