@@ -155,7 +155,7 @@ def list_sessions(profile: Profile = Depends(get_current_profile), db: Session =
         raise HTTPException(status_code=403, detail="Use the student portal")
     if profile.role not in (AppRole.manager, AppRole.teacher, AppRole.operations):
         raise HTTPException(status_code=403, detail="Not allowed")
-    q = db.query(LessonSession).order_by(LessonSession.session_date.desc())
+    q = db.query(LessonSession).order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
     if not can_see_all_sessions(profile):
         q = q.filter(LessonSession.teacher_id == profile.id)
     return [_session_dict(s, db) for s in q.all()]

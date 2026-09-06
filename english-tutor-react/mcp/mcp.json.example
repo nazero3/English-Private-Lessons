@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kinz-mcp-server": {
+      "command": "node",
+      "args": ["english-tutor-react/mcp/src/index.js"],
+      "env": {
+        "KINZ_API_URL": "http://127.0.0.1:8000",
+        "KINZ_EMAIL": "ops@lesson-sheets.app",
+        "KINZ_PASSWORD": "changeme"
+      }
+    }
+  }
+}

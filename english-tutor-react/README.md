@@ -76,6 +76,14 @@ For each unit the teacher gets:
 
 Print via browser Print → Save as PDF (A4).
 
+## Local MCP (dev only, this branch)
+
+A read-only Cursor sidecar lives in [`mcp/`](mcp/README.md). It talks to **localhost:8000**, not production. It is not started by Docker/Nginx and a merge is not required for the live site to keep working.
+
+```bash
+cd english-tutor-react/mcp && npm install && npm test
+```
+
 ## Security notes
 
 - With Supabase, Row Level Security enforces course visibility.

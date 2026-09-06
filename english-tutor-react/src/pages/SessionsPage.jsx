@@ -4,6 +4,7 @@ import LogClassForm from '../components/teacher/LogClassForm'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { homePath } from '../lib/permissions'
+import { sortSessionsByEnteredAt } from '../lib/studentDisplay'
 
 function formatHours(n) {
   if (n == null || n === '') return '—'
@@ -119,8 +120,9 @@ export default function SessionsPage() {
   }, [sessions])
 
   const visibleSessions = useMemo(() => {
-    if (!canSeeAll || teacherFilter === 'all') return sessions
-    return sessions.filter((s) => s.teacher_id === teacherFilter)
+    const rows =
+      !canSeeAll || teacherFilter === 'all' ? sessions : sessions.filter((s) => s.teacher_id === teacherFilter)
+    return [...rows].sort(sortSessionsByEnteredAt)
   }, [canSeeAll, sessions, teacherFilter])
 
   const selectedTeacherName = teacherOptions.find((t) => t.id === teacherFilter)?.name

@@ -387,7 +387,7 @@ const supabaseApi = {
     const { data, error } = await supabase
       .from('lesson_sessions')
       .select('*, lesson:lessons(*, course:courses(*)), teacher:profiles(*), manager:profiles!lesson_sessions_manager_id_fkey(*)')
-      .order('session_date', { ascending: false })
+      .order('created_at', { ascending: false })
     if (error) throw error
     return data.map((s) => ({
       ...s,

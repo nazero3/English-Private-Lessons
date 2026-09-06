@@ -47,6 +47,14 @@ export function sessionLessonName(s) {
   return theme || 'Lesson'
 }
 
+export function sessionEnteredAt(session) {
+  return session?.created_at || session?.session_date || 0
+}
+
+export function sortSessionsByEnteredAt(a, b) {
+  return new Date(sessionEnteredAt(b)) - new Date(sessionEnteredAt(a))
+}
+
 export function latestSessionForStudent(sessions, student) {
   const id = student?.id
   const name = String(student?.full_name || '').trim().toLowerCase()
@@ -57,9 +65,6 @@ export function latestSessionForStudent(sessions, student) {
         if (s.student_id && s.student_id !== id) return false
         return String(s.student_name || '').trim().toLowerCase() === name
       })
-      .sort(
-        (a, b) =>
-          new Date(b.session_date || b.created_at) - new Date(a.session_date || a.created_at),
-      )[0] || null
+      .sort(sortSessionsByEnteredAt)[0] || null
   )
 }

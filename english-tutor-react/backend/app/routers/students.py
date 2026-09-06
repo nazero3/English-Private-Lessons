@@ -173,7 +173,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
     sessions = (
         db.query(LessonSession)
         .filter(LessonSession.student_id == student.id)
-        .order_by(LessonSession.session_date.desc())
+        .order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
         .all()
     )
     if not sessions and student.teacher_id:
@@ -183,7 +183,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
                 LessonSession.teacher_id == student.teacher_id,
                 LessonSession.student_name.ilike(student.full_name),
             )
-            .order_by(LessonSession.session_date.desc())
+            .order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
             .all()
         )
     tests = (

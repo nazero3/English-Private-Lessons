@@ -5,7 +5,7 @@ import { MATH_GRADES } from '../data/mathRegistry'
 import { PHYSICS_GRADES } from '../data/physicsRegistry'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import { clipText } from '../lib/studentDisplay'
+import { clipText, sortSessionsByEnteredAt } from '../lib/studentDisplay'
 import LogClassForm from '../components/teacher/LogClassForm'
 
 function monthStartIso() {
@@ -67,7 +67,7 @@ export default function TeacherHome() {
     }, 0)
   }, [sessions])
 
-  const recent = sessions.slice(0, 4)
+  const recent = [...sessions].sort(sortSessionsByEnteredAt).slice(0, 4)
 
   const removeClass = async (session) => {
     const when = new Date(session.session_date || session.created_at).toLocaleDateString()

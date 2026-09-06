@@ -268,10 +268,7 @@ function localPortal(db, student) {
         course: course ? { id: course.id, title: course.title, grade: course.grade } : catalogCourse,
       }
     })
-    .sort(
-      (a, b) =>
-        new Date(b.session_date || b.created_at) - new Date(a.session_date || a.created_at),
-    )
+    .sort((a, b) => new Date(b.created_at || b.session_date) - new Date(a.created_at || a.session_date))
   const scores = (db.scores || []).filter((s) => s.student_id === student.id)
   const summary = {
     tests_count: scores.length,
@@ -870,7 +867,9 @@ export const localApi = {
     return withDb((db) => {
       const session = db.sessions.find((s) => s.id === sessionId)
       if (!session) throw new Error('Session not found')
+      const createdAt = session.created_at
       Object.assign(session, payload)
+      session.created_at = createdAt
       if (payload.lesson_id) {
         const lesson = db.lessons.find((l) => l.id === payload.lesson_id)
         if (lesson) {
@@ -1010,7 +1009,9 @@ export const localApi = {
         manager: db.profiles.find((p) => p.id === s.manager_id),
         course: packCourse || (s.course_title ? { title: s.course_title } : null),
       }
-    })
+    }).sort(
+      (a, b) => new Date(b.created_at || b.session_date) - new Date(a.created_at || a.session_date),
+    )
   },
 
   async hoursSummary({ from, to } = {}) {

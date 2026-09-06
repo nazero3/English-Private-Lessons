@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import { fmtDate, fmtPct, fmtScore } from '../lib/studentDisplay'
+import { fmtDate, fmtPct, fmtScore, sortSessionsByEnteredAt } from '../lib/studentDisplay'
 
 function SummaryCard({ label, value }) {
   return (
@@ -31,7 +31,8 @@ export default function StudentHome() {
   if (error) return <p className="error">{error}</p>
   if (!data) return <p className="muted">Loading your work…</p>
 
-  const { student, sessions, scores, summary } = data
+  const { student, scores, summary } = data
+  const sessions = [...(data.sessions || [])].sort(sortSessionsByEnteredAt)
 
   return (
     <div className="student-dash">

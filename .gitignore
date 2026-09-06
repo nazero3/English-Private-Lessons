@@ -12,3 +12,6 @@ dist/
 .env.local
 *.log
 .DS_Store
+
+# Local Cursor MCP secrets (example lives in english-tutor-react/mcp/mcp.json.example)
+.cursor/mcp.json

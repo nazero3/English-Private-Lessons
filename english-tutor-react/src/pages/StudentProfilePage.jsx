@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import { fmtDate, fmtPct, fmtScore, sessionCourseName, sessionLessonName, toDateInput, todayInputValue } from '../lib/studentDisplay'
+import { fmtDate, fmtPct, fmtScore, sessionCourseName, sessionLessonName, sortSessionsByEnteredAt, toDateInput, todayInputValue } from '../lib/studentDisplay'
 
 const emptyAccount = { full_name: '', email: '', password: '', teacher_id: '' }
 const emptyLesson = {
@@ -192,7 +192,8 @@ export default function StudentProfilePage() {
   if (error && !data) return <p className="error">{error}</p>
   if (!data) return <p className="muted">Loading student…</p>
 
-  const { student, sessions, scores, summary } = data
+  const { student, scores, summary } = data
+  const sessions = [...(data.sessions || [])].sort(sortSessionsByEnteredAt)
 
   return (
     <div>

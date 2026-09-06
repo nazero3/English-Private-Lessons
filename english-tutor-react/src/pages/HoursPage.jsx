@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { homePath } from '../lib/permissions'
+import { sortSessionsByEnteredAt } from '../lib/studentDisplay'
 
 const HOUR_CHIPS = ['0.5', '1', '1.5', '2']
 
@@ -90,7 +91,7 @@ export default function HoursPage() {
   )
 
   const teacherSessions = useMemo(
-    () => hoursForTeacher(selectedTeacherId),
+    () => [...hoursForTeacher(selectedTeacherId)].sort(sortSessionsByEnteredAt),
     [hoursForTeacher, selectedTeacherId],
   )
 
