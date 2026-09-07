@@ -141,6 +141,17 @@ function IconClock() {
   )
 }
 
+function IconGrid() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"
+      />
+    </svg>
+  )
+}
+
 function primaryNav(role) {
   if (role === 'manager') {
     return [
@@ -148,11 +159,14 @@ function primaryNav(role) {
       { to: '/manager/students', label: 'Students', icon: <IconPeople /> },
       { to: '/manager/sessions', label: 'Sessions', icon: <IconCalendar /> },
       { to: '/manager/hours', label: 'Hours', icon: <IconClock /> },
+      { to: '/manager/schedule', label: 'Schedule', icon: <IconGrid /> },
     ]
   }
   if (role === 'operations') {
     return [
       { to: '/operations', label: 'Hours', end: true, icon: <IconClock /> },
+      { to: '/operations/schedule', label: 'Schedule', icon: <IconGrid /> },
+      { to: '/operations/students', label: 'Students', icon: <IconPeople /> },
       { to: '/operations/sessions', label: 'Sessions', icon: <IconCalendar /> },
       { to: '/operations/families', label: 'Families', icon: <IconPeople /> },
     ]
@@ -277,11 +291,20 @@ export function AppLayout() {
                 <NavLink className={navClass} to="/manager/hours">
                   Hours
                 </NavLink>
+                <NavLink className={navClass} to="/manager/schedule">
+                  Schedule
+                </NavLink>
               </>
             ) : null}
 
             {profile?.role === 'operations' ? (
               <>
+                <NavLink className={navClass} to="/operations/students">
+                  Students
+                </NavLink>
+                <NavLink className={navClass} to="/operations/schedule">
+                  Schedule
+                </NavLink>
                 <NavLink className={navClass} to="/operations/families">
                   Families
                 </NavLink>

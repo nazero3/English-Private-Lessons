@@ -157,6 +157,7 @@ def patch_db_defaults(db: Session) -> None:
         "activities",
         "prizes",
         "prize_redemptions",
+        "weekly_schedule_slots",
     ):
         try:
             conn.exec_driver_sql(

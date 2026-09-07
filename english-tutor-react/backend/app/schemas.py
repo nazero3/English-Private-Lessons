@@ -252,3 +252,15 @@ class PinChange(BaseModel):
 class ComplimentaryGrant(BaseModel):
     reason: str = "منحة إدارية"
     days: int = 30
+
+
+class ScheduleSlotIn(BaseModel):
+    student_id: UUID
+    weekday: int = Field(ge=0, le=5)
+    start_minutes: int
+    duration_minutes: int = 60
+    color: str | None = None
+
+
+class ScheduleSlotPut(BaseModel):
+    slots: list[ScheduleSlotIn] = Field(default_factory=list)

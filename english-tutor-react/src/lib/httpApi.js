@@ -311,6 +311,46 @@ export const httpApi = {
     return request(`/api/hours/summary${q ? `?${q}` : ''}`)
   },
 
+  async getSchedules() {
+    return request('/api/schedules')
+  },
+
+  async getTeacherSchedule(teacherId) {
+    return request(`/api/schedules/teachers/${teacherId}`)
+  },
+
+  async addScheduleSlot(teacherId, payload) {
+    return request(`/api/schedules/teachers/${teacherId}/slots`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async deleteScheduleSlot(slotId) {
+    return request(`/api/schedules/slots/${slotId}`, { method: 'DELETE' })
+  },
+
+  async exportTeacherScheduleExcel(teacherId) {
+    const headers = {}
+    const token = getToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+    const res = await fetch(`${baseUrl()}/api/schedules/teachers/${teacherId}/export.xlsx`, { headers })
+    if (!res.ok) {
+      const text = await res.text()
+      let data = { detail: text }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        /* keep plain text */
+      }
+      throw new Error(_errorMessage(res, data, text))
+    }
+    const blob = await res.blob()
+    const disposition = res.headers.get('Content-Disposition') || ''
+    const match = disposition.match(/filename="([^"]+)"/)
+    return { blob, filename: match?.[1] || 'weekly.xlsx' }
+  },
+
   async listNotifications(profile) {
     return request('/api/notifications')
   },

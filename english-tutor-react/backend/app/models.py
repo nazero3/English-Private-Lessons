@@ -337,6 +337,35 @@ class PrizeRedemption(Base):
     )
 
 
+class WeeklyScheduleSlot(Base):
+    """Recurring weekly class for one teacher (Sat–Thu wall-chart)."""
+
+    __tablename__ = "weekly_schedule_slots"
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "weekday", "start_minutes", name="weekly_schedule_teacher_day_start_uidx"),
+        Index("weekly_schedule_teacher_idx", "teacher_id"),
+        Index("weekly_schedule_student_idx", "student_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()")
+    )
+    teacher_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"))
+    student_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"))
+    weekday: Mapped[int] = mapped_column(nullable=False)
+    start_minutes: Mapped[int] = mapped_column(nullable=False)
+    duration_minutes: Mapped[int] = mapped_column(nullable=False, default=60)
+    color: Mapped[str] = mapped_column(String(16), default="#F5E6C8")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    teacher: Mapped["Profile"] = relationship(foreign_keys=[teacher_id])
+    student: Mapped["Student"] = relationship(foreign_keys=[student_id])
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

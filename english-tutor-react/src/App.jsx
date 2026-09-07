@@ -22,6 +22,7 @@ import {
 import PrintPage from './pages/PrintPage'
 import SessionsPage from './pages/SessionsPage'
 import HoursPage from './pages/HoursPage'
+import SchedulePage from './pages/SchedulePage'
 import KinzMount from './kinz/KinzMount'
 import {
   BriefPage,
@@ -95,6 +96,7 @@ export default function App() {
                 <Route path="/manager/courses/:courseId" element={<ManagerCoursePage />} />
                 <Route path="/manager/sessions" element={<SessionsPage />} />
                 <Route path="/manager/hours" element={<HoursPage />} />
+                <Route path="/manager/schedule" element={<SchedulePage />} />
                 <Route path="/manager/students" element={<StudentsPage />} />
                 <Route path="/manager/students/:studentId" element={<StudentProfilePage />} />
                 <Route path="/manager/parents" element={<ParentsPage />} />
@@ -103,6 +105,8 @@ export default function App() {
               <Route element={<RequireAuth role="operations" />}>
                 <Route path="/operations" element={<HoursPage />} />
                 <Route path="/operations/sessions" element={<SessionsPage />} />
+                <Route path="/operations/students" element={<StudentsPage />} />
+                <Route path="/operations/schedule" element={<SchedulePage />} />
               </Route>
 
               <Route element={<RequireAuth role="student" />}>

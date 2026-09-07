@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import admin, auth, courses, parents, public, sessions, students
+from .routers import admin, auth, courses, parents, public, schedules, sessions, students
 from .seed import init_db
 
 
@@ -29,6 +29,7 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
 app.include_router(students.router, prefix="/api")
+app.include_router(schedules.router, prefix="/api")
 app.include_router(parents.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
 

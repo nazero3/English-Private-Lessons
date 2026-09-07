@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
 from ..database import get_db
-from ..deps import get_current_profile, require_staff
+from ..deps import get_current_profile, require_roster_access, require_staff
 from ..models import (
     AppRole,
     Course,
@@ -18,6 +18,7 @@ from ..models import (
     Student,
     StudentScore,
     User,
+    WeeklyScheduleSlot,
 )
 from ..schemas import StudentCreate, StudentScoreCreate, StudentScoreUpdate, StudentUpdate
 
@@ -203,7 +204,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
 
 
 def _staff_can_manage(profile: Profile, student: Student) -> bool:
-    if profile.role == AppRole.manager:
+    if profile.role in (AppRole.manager, AppRole.operations):
         return True
     return profile.role == AppRole.teacher and student.teacher_id == profile.id
 
@@ -229,9 +230,9 @@ def _create_login(db: Session, email: str, password: str, full_name: str) -> UUI
 
 
 @router.get("/students")
-def list_students(profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+def list_students(profile: Profile = Depends(require_roster_access), db: Session = Depends(get_db)):
     q = db.query(Student)
-    if profile.role != AppRole.manager:
+    if profile.role not in (AppRole.manager, AppRole.operations):
         q = q.filter(Student.teacher_id == profile.id)
     rows = q.all()
     rows.sort(key=lambda s: (s.teacher_id is not None, (s.full_name or "").lower()))
@@ -256,13 +257,13 @@ def list_students(profile: Profile = Depends(require_staff), db: Session = Depen
 
 
 @router.post("/students", status_code=201)
-def create_student(body: StudentCreate, profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+def create_student(body: StudentCreate, profile: Profile = Depends(require_roster_access), db: Session = Depends(get_db)):
     name = body.full_name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Student name is required")
 
     teacher_id = profile.id
-    if profile.role == AppRole.manager:
+    if profile.role in (AppRole.manager, AppRole.operations):
         if body.teacher_id:
             teacher = db.query(Profile).filter(Profile.id == body.teacher_id, Profile.role == AppRole.teacher).first()
             if not teacher:
@@ -316,7 +317,7 @@ def get_student(student_id: UUID, profile: Profile = Depends(require_staff), db:
 def update_student(
     student_id: UUID,
     body: StudentUpdate,
-    profile: Profile = Depends(require_staff),
+    profile: Profile = Depends(require_roster_access),
     db: Session = Depends(get_db),
 ):
     student = _get_managed_student(db, profile, student_id)
@@ -343,10 +344,13 @@ def update_student(
                 login_profile.full_name = name
 
     if "teacher_id" in data:
-        if profile.role != AppRole.manager:
-            raise HTTPException(status_code=403, detail="Only a manager can reassign a student")
+        if profile.role not in (AppRole.manager, AppRole.operations):
+            raise HTTPException(status_code=403, detail="Only operations or a manager can reassign a student")
         tid = data["teacher_id"]
         if tid is None:
+            db.query(WeeklyScheduleSlot).filter(WeeklyScheduleSlot.student_id == student.id).delete(
+                synchronize_session=False
+            )
             student.teacher_id = None
         else:
             teacher = db.query(Profile).filter(Profile.id == tid, Profile.role == AppRole.teacher).first()
@@ -363,6 +367,10 @@ def update_student(
             )
             if clash:
                 raise HTTPException(status_code=400, detail="That teacher already has a student with this name")
+            if student.teacher_id != teacher.id:
+                db.query(WeeklyScheduleSlot).filter(WeeklyScheduleSlot.student_id == student.id).delete(
+                    synchronize_session=False
+                )
             student.teacher_id = teacher.id
 
     email = body.email.lower().strip() if body.email else None
@@ -500,7 +508,7 @@ def _delete_student_login(db: Session, user_id: UUID) -> None:
 
 
 @router.delete("/students/{student_id}")
-def delete_student(student_id: UUID, profile: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+def delete_student(student_id: UUID, profile: Profile = Depends(require_roster_access), db: Session = Depends(get_db)):
     student = _get_managed_student(db, profile, student_id)
     user_id = student.user_id
     if db.in_transaction():

@@ -32,6 +32,93 @@ function uid(prefix = 'id') {
   return `${prefix}-${crypto.randomUUID()}`
 }
 
+const STUDENT_COLORS_LOCAL = [
+  '#F5E6C8',
+  '#F8D0D0',
+  '#C5D8F0',
+  '#F5CBA7',
+  '#D4E8D0',
+  '#E4D5F0',
+  '#FFE6A7',
+  '#D0E8E3',
+]
+
+function formatLocalClock(minutes) {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  const display = hours > 12 ? hours - 12 : hours
+  return `${display}:${String(mins).padStart(2, '0')}`
+}
+
+function occupiedLocal(startMinutes, durationMinutes) {
+  const ticks = durationMinutes / 30
+  return Array.from({ length: ticks }, (_, i) => startMinutes + i * 30)
+}
+
+function scheduleHelpers() {
+  const WEEKDAYS = [
+    { id: 0, en: 'Saturday', ar: 'السبت' },
+    { id: 1, en: 'Sunday', ar: 'الأحد' },
+    { id: 2, en: 'Monday', ar: 'الاثنين' },
+    { id: 3, en: 'Tuesday', ar: 'الثلاثاء' },
+    { id: 4, en: 'Wednesday', ar: 'الأربعاء' },
+    { id: 5, en: 'Thursday', ar: 'الخميس' },
+  ]
+  const TIME_STARTS_FALLBACK = []
+  for (let minute = 12 * 60; minute <= 22 * 60; minute += 30) TIME_STARTS_FALLBACK.push(minute)
+  const decorateSlot = (db, slot, teacher) => {
+    const student = (db.students || []).find((s) => s.id === slot.student_id)
+    const teacherName = teacher?.full_name || ''
+    const studentName = student?.full_name || ''
+    return {
+      ...slot,
+      student_name: studentName,
+      teacher_name: teacherName,
+      label: `${studentName} / ${teacherName}`.trim(),
+    }
+  }
+  const weeklyHoursFromSlots = (slots) => {
+    const total = (slots || []).reduce((sum, slot) => sum + (Number(slot.duration_minutes) || 0), 0)
+    return Math.round((total / 60) * 100) / 100
+  }
+  return { WEEKDAYS, TIME_STARTS_FALLBACK, decorateSlot, weeklyHoursFromSlots }
+}
+
+function localScheduleHtml(data) {
+  const { WEEKDAYS, TIME_STARTS_FALLBACK } = scheduleHelpers()
+  const starts = data.time_starts || TIME_STARTS_FALLBACK
+  const weekdays = data.weekdays || WEEKDAYS
+  const occupancy = new Map()
+  for (const slot of data.slots || []) {
+    for (const tick of occupiedLocal(slot.start_minutes, slot.duration_minutes)) {
+      occupancy.set(`${slot.weekday}-${tick}`, slot)
+    }
+  }
+  const skip = new Set()
+  const rows = starts
+    .map((minute) => {
+      const cells = weekdays
+        .map((day) => {
+          const key = `${day.id}-${minute}`
+          if (skip.has(key)) return ''
+          const slot = occupancy.get(key)
+          if (!slot || slot.start_minutes !== minute) {
+            return '<td></td>'
+          }
+          const span = slot.duration_minutes / 30
+          for (let i = 1; i < span; i += 1) skip.add(`${day.id}-${minute + i * 30}`)
+          const color = slot.color || '#F5E6C8'
+          const label = slot.label || slot.student_name || ''
+          return `<td rowspan="${span}" style="background:${color};text-align:center">${label}</td>`
+        })
+        .join('')
+      return `<tr><th>${formatLocalClock(minute)}</th>${cells}</tr>`
+    })
+    .join('')
+  const heads = weekdays.map((day) => `<th>${day.ar}</th>`).join('')
+  return `<html><head><meta charset="utf-8"></head><body><table dir="rtl" border="1"><thead><tr><th>الوقت</th>${heads}</tr></thead><tbody>${rows}</tbody></table></body></html>`
+}
+
 function buildSeed() {
   const courses = [
     {
@@ -102,6 +189,7 @@ function buildSeed() {
     ],
     scores: [],
     notifications: [],
+    scheduleSlots: [],
     sessionUserId: null,
   }
 }
@@ -184,6 +272,10 @@ function migrateDb(db) {
   }
   if (!Array.isArray(db.scores)) {
     db.scores = []
+    changed = true
+  }
+  if (!Array.isArray(db.scheduleSlots)) {
+    db.scheduleSlots = []
     changed = true
   }
   for (const session of db.sessions || []) {
@@ -693,7 +785,7 @@ export const localApi = {
       if (au !== bu) return au - bu
       return String(a.full_name).localeCompare(String(b.full_name))
     }
-    if (profile?.role === 'manager') {
+    if (profile?.role === 'manager' || profile?.role === 'operations') {
       return [...rows].sort(sortRoster)
     }
     const teacherId = profile?.id
@@ -705,8 +797,9 @@ export const localApi = {
       const body = typeof payload === 'string' ? { full_name: payload } : payload || {}
       const name = String(body.full_name || '').trim()
       if (!name) throw new Error('Student name is required')
-      const teacherId = profile?.role === 'manager' ? body.teacher_id : profile?.id
-      if (!teacherId) throw new Error('Teacher is required')
+      const teacherId =
+        profile?.role === 'manager' || profile?.role === 'operations' ? body.teacher_id || null : profile?.id
+      if (!teacherId && profile?.role === 'teacher') throw new Error('Teacher is required')
       const existing = (db.students || []).find(
         (s) => s.teacher_id === teacherId && s.full_name.toLowerCase() === name.toLowerCase(),
       )
@@ -763,7 +856,11 @@ export const localApi = {
       if (!student) throw new Error('Student not found')
       if (payload.full_name) student.full_name = payload.full_name.trim()
       if (Object.prototype.hasOwnProperty.call(payload, 'teacher_id')) {
-        student.teacher_id = payload.teacher_id || null
+        const nextTeacher = payload.teacher_id || null
+        if (student.teacher_id !== nextTeacher) {
+          db.scheduleSlots = (db.scheduleSlots || []).filter((slot) => slot.student_id !== student.id)
+        }
+        student.teacher_id = nextTeacher
       }
       const email = String(payload.email || '').trim().toLowerCase()
       if (student.user_id) {
@@ -1042,6 +1139,123 @@ export const localApi = {
       total_hours: rows.reduce((sum, r) => sum + r.total_hours, 0),
       session_count: rows.reduce((sum, r) => sum + r.session_count, 0),
     }
+  },
+
+  async getSchedules() {
+    const db = read()
+    const { WEEKDAYS, TIME_STARTS_FALLBACK, weeklyHoursFromSlots } = scheduleHelpers()
+    const teachers = db.profiles.filter((p) => p.role === 'teacher')
+    return {
+      weekdays: WEEKDAYS,
+      time_starts: TIME_STARTS_FALLBACK,
+      time_labels: TIME_STARTS_FALLBACK.map(formatLocalClock),
+      slot_step_minutes: 30,
+      default_duration_minutes: 60,
+      allowed_durations: [30, 60, 90],
+      colors: STUDENT_COLORS_LOCAL,
+      teachers: teachers.map((teacher) => {
+        const slots = (db.scheduleSlots || []).filter((slot) => slot.teacher_id === teacher.id)
+        const roster = (db.students || []).filter((s) => s.teacher_id === teacher.id)
+        return {
+          teacher_id: teacher.id,
+          teacher,
+          student_count: roster.length,
+          scheduled_student_count: new Set(slots.map((s) => s.student_id)).size,
+          slot_count: slots.length,
+          weekly_hours: weeklyHoursFromSlots(slots),
+        }
+      }),
+    }
+  },
+
+  async getTeacherSchedule(teacherId) {
+    const db = read()
+    const teacher = db.profiles.find((p) => p.id === teacherId && p.role === 'teacher')
+    if (!teacher) throw new Error('Teacher not found')
+    const { WEEKDAYS, TIME_STARTS_FALLBACK, decorateSlot, weeklyHoursFromSlots } = scheduleHelpers()
+    const slots = (db.scheduleSlots || [])
+      .filter((slot) => slot.teacher_id === teacherId)
+      .map((slot) => decorateSlot(db, slot, teacher))
+    const students = (db.students || [])
+      .filter((s) => s.teacher_id === teacherId)
+      .map((s) => ({ ...s, teacher }))
+    return {
+      weekdays: WEEKDAYS,
+      time_starts: TIME_STARTS_FALLBACK,
+      time_labels: TIME_STARTS_FALLBACK.map(formatLocalClock),
+      slot_step_minutes: 30,
+      default_duration_minutes: 60,
+      allowed_durations: [30, 60, 90],
+      colors: STUDENT_COLORS_LOCAL,
+      teacher,
+      students,
+      slots,
+      weekly_hours: weeklyHoursFromSlots(slots),
+    }
+  },
+
+  async addScheduleSlot(teacherId, payload) {
+    return withDb((db) => {
+      const teacher = db.profiles.find((p) => p.id === teacherId && p.role === 'teacher')
+      if (!teacher) throw new Error('Teacher not found')
+      const student = (db.students || []).find((s) => s.id === payload.student_id)
+      if (!student) throw new Error('Student not found')
+      if (student.teacher_id !== teacherId) throw new Error('Assign this student to the teacher first')
+      const duration = payload.duration_minutes || 60
+      const occupied = occupiedLocal(payload.start_minutes, duration)
+      const clash = (db.scheduleSlots || []).find(
+        (slot) =>
+          slot.teacher_id === teacherId &&
+          slot.weekday === payload.weekday &&
+          occupiedLocal(slot.start_minutes, slot.duration_minutes).some((tick) => occupied.includes(tick)),
+      )
+      if (clash) {
+        const name = (db.students || []).find((s) => s.id === clash.student_id)?.full_name || 'another student'
+        throw new Error(`That time overlaps ${name} on this teacher's chart`)
+      }
+      const existingForStudent = (db.scheduleSlots || []).find(
+        (slot) => slot.teacher_id === teacherId && slot.student_id === payload.student_id,
+      )
+      const used = new Set((db.scheduleSlots || []).filter((s) => s.teacher_id === teacherId).map((s) => s.color))
+      const color =
+        payload.color ||
+        existingForStudent?.color ||
+        STUDENT_COLORS_LOCAL.find((c) => !used.has(c)) ||
+        STUDENT_COLORS_LOCAL[0]
+      const row = {
+        id: uid('slot'),
+        teacher_id: teacherId,
+        student_id: payload.student_id,
+        weekday: payload.weekday,
+        start_minutes: payload.start_minutes,
+        duration_minutes: duration,
+        color,
+      }
+      db.scheduleSlots = [...(db.scheduleSlots || []), row]
+      return {
+        ...row,
+        student_name: student.full_name,
+        teacher_name: teacher.full_name,
+        label: `${student.full_name} / ${teacher.full_name}`,
+      }
+    })
+  },
+
+  async deleteScheduleSlot(slotId) {
+    return withDb((db) => {
+      const row = (db.scheduleSlots || []).find((slot) => slot.id === slotId)
+      if (!row) throw new Error('Schedule slot not found')
+      db.scheduleSlots = db.scheduleSlots.filter((slot) => slot.id !== slotId)
+      return { ok: true }
+    })
+  },
+
+  async exportTeacherScheduleExcel(teacherId) {
+    const data = await this.getTeacherSchedule(teacherId)
+    const html = localScheduleHtml(data)
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const name = `${(data.teacher?.full_name || 'teacher').replace(/[^\w.-]+/g, '_')}-weekly.xls`
+    return { blob, filename: name }
   },
 
   async listNotifications(profileOrId) {

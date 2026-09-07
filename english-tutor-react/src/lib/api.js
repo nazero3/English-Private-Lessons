@@ -402,6 +402,22 @@ const supabaseApi = {
     throw new Error('Hours summary requires the FastAPI backend')
   },
 
+  async getSchedules() {
+    throw new Error('Weekly schedules require the FastAPI backend')
+  },
+  async getTeacherSchedule() {
+    throw new Error('Weekly schedules require the FastAPI backend')
+  },
+  async addScheduleSlot() {
+    throw new Error('Weekly schedules require the FastAPI backend')
+  },
+  async deleteScheduleSlot() {
+    throw new Error('Weekly schedules require the FastAPI backend')
+  },
+  async exportTeacherScheduleExcel() {
+    throw new Error('Weekly schedules require the FastAPI backend')
+  },
+
   async listNotifications(profile) {
     const { data, error } = await supabase
       .from('notifications')

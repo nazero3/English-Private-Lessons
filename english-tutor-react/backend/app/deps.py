@@ -50,6 +50,16 @@ def require_ops_or_manager(profile: Profile = Depends(get_current_profile)) -> P
     return profile
 
 
+def require_roster_access(profile: Profile = Depends(get_current_profile)) -> Profile:
+    if profile.role not in (AppRole.manager, AppRole.teacher, AppRole.operations):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+    return profile
+
+
+def can_see_all_students(profile: Profile) -> bool:
+    return profile.role in (AppRole.manager, AppRole.operations)
+
+
 def can_see_all_sessions(profile: Profile) -> bool:
     return profile.role in (AppRole.manager, AppRole.operations)
 

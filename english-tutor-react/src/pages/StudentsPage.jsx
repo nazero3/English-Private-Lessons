@@ -9,8 +9,10 @@ const emptyForm = { full_name: '', email: '', password: '', teacher_id: '' }
 export default function StudentsPage() {
   const { profile } = useAuth()
   const isManager = profile?.role === 'manager'
-  const base = isManager ? '/manager/students' : '/teacher/students'
-  const back = isManager ? '/manager' : '/teacher'
+  const isOps = profile?.role === 'operations'
+  const isRosterAdmin = isManager || isOps
+  const base = isManager ? '/manager/students' : isOps ? '/operations/students' : '/teacher/students'
+  const back = isManager ? '/manager' : isOps ? '/operations' : '/teacher'
   const location = useLocation()
   const [students, setStudents] = useState([])
   const [sessions, setSessions] = useState([])
@@ -28,9 +30,14 @@ export default function StudentsPage() {
       ])
       setStudents(rows)
       setSessions(sessionRows)
-      if (isManager) {
-        const profiles = await api.listProfiles()
-        setTeachers(profiles.filter((p) => p.role === 'teacher'))
+      if (isRosterAdmin) {
+        if (isOps) {
+          const schedule = await api.getSchedules()
+          setTeachers((schedule.teachers || []).map((row) => row.teacher).filter(Boolean))
+        } else {
+          const profiles = await api.listProfiles()
+          setTeachers(profiles.filter((p) => p.role === 'teacher'))
+        }
       }
     } catch (err) {
       setError(err.message)
@@ -54,7 +61,7 @@ export default function StudentsPage() {
         full_name: form.full_name.trim(),
         email: form.email.trim() || undefined,
         password: form.password || undefined,
-        teacher_id: isManager ? form.teacher_id || null : undefined,
+        teacher_id: isRosterAdmin ? form.teacher_id || null : undefined,
       })
       setForm(emptyForm)
       await load()
@@ -109,10 +116,10 @@ export default function StudentsPage() {
       </p>
       <header className="teacher-dash__hero">
         <div>
-          <h1>{isManager ? 'Students' : 'My students'}</h1>
+          <h1>{isRosterAdmin ? 'Students' : 'My students'}</h1>
           <p className="muted">
-            {isManager
-              ? 'Tap a name for notes, homework, and scores. Assign a teacher from the list.'
+            {isRosterAdmin
+              ? 'Add students and assign each one to a teacher. The weekly chart uses this roster.'
               : 'Tap a name to read every note and homework you logged for that student.'}
           </p>
         </div>
@@ -120,7 +127,7 @@ export default function StudentsPage() {
 
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
-      {isManager && needsTeacher.length ? (
+      {isRosterAdmin && needsTeacher.length ? (
         <p className="notice">
           {needsTeacher.length} student{needsTeacher.length === 1 ? '' : 's'} still need a teacher.
         </p>
@@ -139,7 +146,7 @@ export default function StudentsPage() {
                 required
               />
             </div>
-            {isManager ? (
+            {isRosterAdmin ? (
               <div className="field">
                 <label htmlFor="stu-teacher">Teacher</label>
                 <select
@@ -169,7 +176,7 @@ export default function StudentsPage() {
             )}
           </div>
           <div className="grid-2">
-            {isManager ? (
+            {isRosterAdmin ? (
               <div className="field">
                 <label htmlFor="stu-email-mgr">Email</label>
                 <input
@@ -209,34 +216,44 @@ export default function StudentsPage() {
               const last = latestSessionForStudent(sessions, s)
               const notes = clipText(last?.notes)
               const homework = clipText(last?.homework_assigned)
-              return (
-              <li key={s.id} className="person-row">
-                <Link className="person-row__main" to={`${base}/${s.id}`}>
+              const body = (
+                <>
                   <strong>{s.full_name}</strong>
                   <span className="muted">
                     {s.email || 'No login yet'}
-                    {isManager && !s.teacher_id ? ' · Needs a teacher' : ''}
+                    {isRosterAdmin && s.teacher?.full_name ? ` · ${s.teacher.full_name}` : ''}
+                    {isRosterAdmin && !s.teacher_id ? ' · Needs a teacher' : ''}
                     {last ? ` · Last class ${fmtDate(last.session_date || last.created_at)}` : ''}
                   </span>
-                  {notes ? (
+                  {!isOps && notes ? (
                     <span className="person-row__note">
                       <span className="person-row__note-label">Notes</span>
                       {notes}
                     </span>
                   ) : null}
-                  {homework ? (
+                  {!isOps && homework ? (
                     <span className="person-row__note">
                       <span className="person-row__note-label">Homework</span>
                       {homework}
                     </span>
-                  ) : last && !notes ? (
+                  ) : !isOps && last && !notes ? (
                     <span className="muted">No notes or homework on the last class.</span>
-                  ) : !last ? (
+                  ) : !isOps && !last ? (
                     <span className="muted">No classes logged yet.</span>
                   ) : null}
-                </Link>
+                </>
+              )
+              return (
+              <li key={s.id} className="person-row">
+                {isOps ? (
+                  <div className="person-row__main">{body}</div>
+                ) : (
+                  <Link className="person-row__main" to={`${base}/${s.id}`}>
+                    {body}
+                  </Link>
+                )}
                 <div className="person-row__tools">
-                  {isManager ? (
+                  {isRosterAdmin ? (
                     <select
                       className={`person-row__select${s.teacher_id ? '' : ' is-empty'}`}
                       value={s.teacher_id || ''}
