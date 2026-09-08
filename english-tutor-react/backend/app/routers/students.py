@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
 from ..database import get_db
-from ..deps import get_current_profile, require_roster_access, require_staff
+from ..deps import get_current_profile, require_ops_or_manager, require_roster_access, require_staff
 from ..models import (
     AppRole,
     Course,
@@ -257,22 +257,19 @@ def list_students(profile: Profile = Depends(require_roster_access), db: Session
 
 
 @router.post("/students", status_code=201)
-def create_student(body: StudentCreate, profile: Profile = Depends(require_roster_access), db: Session = Depends(get_db)):
+def create_student(
+    body: StudentCreate, _profile: Profile = Depends(require_ops_or_manager), db: Session = Depends(get_db)
+):
     name = body.full_name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Student name is required")
 
-    teacher_id = profile.id
-    if profile.role in (AppRole.manager, AppRole.operations):
-        if body.teacher_id:
-            teacher = db.query(Profile).filter(Profile.id == body.teacher_id, Profile.role == AppRole.teacher).first()
-            if not teacher:
-                raise HTTPException(status_code=404, detail="Teacher not found")
-            teacher_id = teacher.id
-        else:
-            teacher_id = None
-    elif body.teacher_id and body.teacher_id != profile.id:
-        raise HTTPException(status_code=403, detail="Teachers can only create their own students")
+    teacher_id = None
+    if body.teacher_id:
+        teacher = db.query(Profile).filter(Profile.id == body.teacher_id, Profile.role == AppRole.teacher).first()
+        if not teacher:
+            raise HTTPException(status_code=404, detail="Teacher not found")
+        teacher_id = teacher.id
 
     existing = (
         db.query(Student)
@@ -317,7 +314,7 @@ def get_student(student_id: UUID, profile: Profile = Depends(require_staff), db:
 def update_student(
     student_id: UUID,
     body: StudentUpdate,
-    profile: Profile = Depends(require_roster_access),
+    profile: Profile = Depends(require_ops_or_manager),
     db: Session = Depends(get_db),
 ):
     student = _get_managed_student(db, profile, student_id)
@@ -344,8 +341,6 @@ def update_student(
                 login_profile.full_name = name
 
     if "teacher_id" in data:
-        if profile.role not in (AppRole.manager, AppRole.operations):
-            raise HTTPException(status_code=403, detail="Only operations or a manager can reassign a student")
         tid = data["teacher_id"]
         if tid is None:
             db.query(WeeklyScheduleSlot).filter(WeeklyScheduleSlot.student_id == student.id).delete(
@@ -508,7 +503,7 @@ def _delete_student_login(db: Session, user_id: UUID) -> None:
 
 
 @router.delete("/students/{student_id}")
-def delete_student(student_id: UUID, profile: Profile = Depends(require_roster_access), db: Session = Depends(get_db)):
+def delete_student(student_id: UUID, profile: Profile = Depends(require_ops_or_manager), db: Session = Depends(get_db)):
     student = _get_managed_student(db, profile, student_id)
     user_id = student.user_id
     if db.in_transaction():

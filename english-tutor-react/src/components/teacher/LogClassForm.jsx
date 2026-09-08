@@ -30,7 +30,6 @@ function hoursInput(value) {
 }
 
 const HOUR_CHIPS = ['0.5', '1', '1.5', '2']
-const NEW_STUDENT = '__new__'
 
 function packUnits(lessons) {
   return (lessons || []).map((l) => ({
@@ -96,7 +95,7 @@ export default function LogClassForm({ profile, onSaved, editingSession = null, 
         student_id:
           editingSession.student_id && studentRows.some((s) => s.id === editingSession.student_id)
             ? editingSession.student_id
-            : studentRows[0]?.id || NEW_STUDENT,
+            : studentRows[0]?.id || '',
         student_name: editingSession.student_name || '',
         hours: hoursInput(editingSession.hours),
         session_date: toDateInput(editingSession.session_date || editingSession.created_at),
@@ -111,7 +110,7 @@ export default function LogClassForm({ profile, onSaved, editingSession = null, 
       const stillThere = prev.student_id && studentRows.some((s) => s.id === prev.student_id)
       return {
         ...prev,
-        student_id: stillThere ? prev.student_id : studentRows[0]?.id || NEW_STUDENT,
+        student_id: stillThere ? prev.student_id : studentRows[0]?.id || '',
         student_name: stillThere ? prev.student_name : '',
       }
     })
@@ -146,27 +145,17 @@ export default function LogClassForm({ profile, onSaved, editingSession = null, 
       const unit = lessons.find((l) => String(l.id) === String(form.lesson_id))
       if (!unit) throw new Error('Choose a lesson unit')
 
-      let studentId = form.student_id
-      let name = form.student_name.trim()
-      if (studentId && studentId !== NEW_STUDENT) {
-        const row = students.find((s) => s.id === studentId)
-        name = row?.full_name || name
-        if (!name) throw new Error('Choose a student')
-      } else {
-        if (!name) throw new Error('Choose a student')
-        if (profile?.role === 'manager') {
-          throw new Error('Pick a student from the list')
-        }
-        const created = await api.createStudent(profile, name)
-        studentId = created?.id
-      }
+      const studentId = form.student_id
+      const row = students.find((s) => s.id === studentId)
+      const name = row?.full_name || form.student_name.trim()
+      if (!studentId || !name) throw new Error('Pick a student from the roster')
 
       const hours = Number(form.hours)
       if (!Number.isFinite(hours) || hours < 0.5) throw new Error('Hours must be at least 0.5')
 
       const payload = {
         teacher_id: profile.id,
-        student_id: studentId && studentId !== NEW_STUDENT ? studentId : undefined,
+        student_id: studentId || undefined,
         student_name: name,
         notes: form.notes.trim(),
         homework_assigned: form.homework_assigned.trim(),
@@ -190,7 +179,7 @@ export default function LogClassForm({ profile, onSaved, editingSession = null, 
         await api.createSession(payload)
         setForm((prev) => ({
           ...prev,
-          student_name: prev.student_id === NEW_STUDENT ? '' : prev.student_name,
+          student_name: prev.student_name,
           notes: '',
           homework_assigned: '',
           hours: '1',
@@ -208,8 +197,6 @@ export default function LogClassForm({ profile, onSaved, editingSession = null, 
     }
   }
 
-  const addingNewStudent = form.student_id === NEW_STUDENT || !students.length
-
   return (
     <form className="log-class" onSubmit={submit}>
       {error ? <p className="error">{error}</p> : null}
@@ -218,49 +205,23 @@ export default function LogClassForm({ profile, onSaved, editingSession = null, 
       <div className="log-class__row">
         <div className="field">
           <label htmlFor="log-student">Student</label>
-          {students.length ? (
-            <select
-              id="log-student"
-              value={form.student_id}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  student_id: e.target.value,
-                  student_name: e.target.value === NEW_STUDENT ? '' : form.student_name,
-                })
-              }
-              required
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.full_name}
-                </option>
-              ))}
-              <option value={NEW_STUDENT}>Someone new…</option>
-            </select>
-          ) : (
-            <input
-              id="log-student"
-              value={form.student_name}
-              onChange={(e) => setForm({ ...form, student_id: NEW_STUDENT, student_name: e.target.value })}
-              placeholder="Type a name"
-              required
-              autoComplete="off"
-            />
-          )}
-          {addingNewStudent && students.length ? (
-            <input
-              className="log-class__new-student"
-              value={form.student_name}
-              onChange={(e) => setForm({ ...form, student_name: e.target.value })}
-              placeholder="New student name"
-              required
-              autoComplete="off"
-            />
-          ) : null}
+          <select
+            id="log-student"
+            value={form.student_id}
+            onChange={(e) => setForm({ ...form, student_id: e.target.value })}
+            required
+            disabled={!students.length}
+          >
+            {!students.length ? <option value="">No students yet</option> : null}
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.full_name}
+              </option>
+            ))}
+          </select>
           {!students.length ? (
             <p className="muted log-class__hint">
-              This list is your roster. Add students under Students, or type a name here.
+              Operations adds students to your roster. You can log a class after one is assigned.
             </p>
           ) : null}
         </div>

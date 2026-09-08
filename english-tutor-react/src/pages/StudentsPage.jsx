@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
+import { canManageRoster } from '../lib/permissions'
 import { clipText, fmtDate, latestSessionForStudent } from '../lib/studentDisplay'
 
 const emptyForm = { full_name: '', email: '', password: '', teacher_id: '' }
@@ -10,7 +11,7 @@ export default function StudentsPage() {
   const { profile } = useAuth()
   const isManager = profile?.role === 'manager'
   const isOps = profile?.role === 'operations'
-  const isRosterAdmin = isManager || isOps
+  const isRosterAdmin = canManageRoster(profile?.role)
   const base = isManager ? '/manager/students' : isOps ? '/operations/students' : '/teacher/students'
   const back = isManager ? '/manager' : isOps ? '/operations' : '/teacher'
   const location = useLocation()
@@ -18,6 +19,7 @@ export default function StudentsPage() {
   const [sessions, setSessions] = useState([])
   const [teachers, setTeachers] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [busyId, setBusyId] = useState('')
@@ -52,20 +54,44 @@ export default function StudentsPage() {
     if (location.state?.message) setMessage(location.state.message)
   }, [location.state])
 
-  const createStudent = async (e) => {
+  const startEdit = (student) => {
+    setError('')
+    setMessage('')
+    setEditingId(student.id)
+    setForm({
+      full_name: student.full_name || '',
+      email: student.email || '',
+      password: '',
+      teacher_id: student.teacher_id || '',
+    })
+    document.getElementById('student-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const cancelEdit = () => {
+    setEditingId('')
+    setForm(emptyForm)
+  }
+
+  const saveStudent = async (e) => {
     e.preventDefault()
     setError('')
     setMessage('')
+    const payload = {
+      full_name: form.full_name.trim(),
+      email: form.email.trim() || undefined,
+      password: form.password || undefined,
+      teacher_id: form.teacher_id || null,
+    }
     try {
-      await api.createStudent(profile, {
-        full_name: form.full_name.trim(),
-        email: form.email.trim() || undefined,
-        password: form.password || undefined,
-        teacher_id: isRosterAdmin ? form.teacher_id || null : undefined,
-      })
-      setForm(emptyForm)
+      if (editingId) {
+        await api.updateStudent(editingId, payload)
+        setMessage('Student updated.')
+      } else {
+        await api.createStudent(profile, payload)
+        setMessage('Student saved. They can sign in if you set an email and password.')
+      }
+      cancelEdit()
       await load()
-      setMessage('Student saved. They can sign in if you set an email and password.')
     } catch (err) {
       setError(err.message)
     }
@@ -93,6 +119,7 @@ export default function StudentsPage() {
     setBusyId(student.id)
     try {
       await api.deleteStudent(student.id)
+      if (editingId === student.id) cancelEdit()
       await load()
       setMessage(`${student.full_name} was removed.`)
     } catch (err) {
@@ -108,6 +135,7 @@ export default function StudentsPage() {
   }
 
   const needsTeacher = students.filter((s) => !s.teacher_id)
+  const editing = students.find((s) => s.id === editingId) || null
 
   return (
     <div>
@@ -133,20 +161,20 @@ export default function StudentsPage() {
         </p>
       ) : null}
 
-      <section className="panel">
-        <h2>Add student</h2>
-        <form onSubmit={createStudent}>
-          <div className="grid-2">
-            <div className="field">
-              <label htmlFor="stu-name">Full name</label>
-              <input
-                id="stu-name"
-                value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                required
-              />
-            </div>
-            {isRosterAdmin ? (
+      {isRosterAdmin ? (
+        <section className="panel" id="student-form">
+          <h2>{editing ? 'Edit student' : 'Add student'}</h2>
+          <form onSubmit={saveStudent}>
+            <div className="grid-2">
+              <div className="field">
+                <label htmlFor="stu-name">Full name</label>
+                <input
+                  id="stu-name"
+                  value={form.full_name}
+                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  required
+                />
+              </div>
               <div className="field">
                 <label htmlFor="stu-teacher">Teacher</label>
                 <select
@@ -162,21 +190,8 @@ export default function StudentsPage() {
                   ))}
                 </select>
               </div>
-            ) : (
-              <div className="field">
-                <label htmlFor="stu-email">Email</label>
-                <input
-                  id="stu-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="Optional"
-                />
-              </div>
-            )}
-          </div>
-          <div className="grid-2">
-            {isRosterAdmin ? (
+            </div>
+            <div className="grid-2">
               <div className="field">
                 <label htmlFor="stu-email-mgr">Email</label>
                 <input
@@ -187,29 +202,42 @@ export default function StudentsPage() {
                   placeholder="Optional"
                 />
               </div>
-            ) : null}
-            <div className="field">
-              <label htmlFor="stu-pass">Password</label>
-              <input
-                id="stu-pass"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                minLength={6}
-                placeholder="With email, to let them sign in"
-              />
+              <div className="field">
+                <label htmlFor="stu-pass">Password</label>
+                <input
+                  id="stu-pass"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  minLength={6}
+                  placeholder={
+                    editing?.has_login ? 'Leave blank to keep current password' : 'With email, to let them sign in'
+                  }
+                />
+              </div>
             </div>
-          </div>
-          <button className="btn" type="submit">
-            Save student
-          </button>
-        </form>
-      </section>
+            <div className="actions">
+              <button className="btn" type="submit">
+                {editing ? 'Save changes' : 'Save student'}
+              </button>
+              {editing ? (
+                <button className="btn secondary" type="button" onClick={cancelEdit}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="panel">
         <h2>Roster ({students.length})</h2>
         {!students.length ? (
-          <p className="muted">No students yet. Add one above.</p>
+          <p className="muted">
+            {isRosterAdmin
+              ? 'No students yet. Add one above.'
+              : 'No students assigned yet. Operations adds students to your roster.'}
+          </p>
         ) : (
           <ul className="teacher-account-list">
             {students.map((s) => {
@@ -252,8 +280,8 @@ export default function StudentsPage() {
                     {body}
                   </Link>
                 )}
-                <div className="person-row__tools">
-                  {isRosterAdmin ? (
+                {isRosterAdmin ? (
+                  <div className="person-row__tools">
                     <select
                       className={`person-row__select${s.teacher_id ? '' : ' is-empty'}`}
                       value={s.teacher_id || ''}
@@ -268,17 +296,26 @@ export default function StudentsPage() {
                         </option>
                       ))}
                     </select>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="btn text-danger"
-                    aria-label={`Delete ${s.full_name}`}
-                    disabled={Boolean(busyId)}
-                    onClick={() => removeStudent(s)}
-                  >
-                    {busyId === s.id ? 'Deleting…' : 'Delete'}
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      className="btn secondary compact"
+                      aria-label={`Edit ${s.full_name}`}
+                      disabled={Boolean(busyId)}
+                      onClick={() => startEdit(s)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn text-danger"
+                      aria-label={`Delete ${s.full_name}`}
+                      disabled={Boolean(busyId)}
+                      onClick={() => removeStudent(s)}
+                    >
+                      {busyId === s.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                ) : null}
               </li>
               )
             })}
