@@ -97,12 +97,29 @@ jobs:
           VERIFY_URL: ${{ vars.VERIFY_URL || 'https://kinz-teach.cloud' }}
         run: |
           set -euo pipefail
+          # Public HTTPS can 502 for ~30s after nginx/api recreate; VPS localhost
+          # already passed. curl -f exit 22 is that race, not a failed deploy.
+          wait_http() {
+            local path="$1"
+            local i code
+            for i in $(seq 1 12); do
+              code="$(curl -sS -o /tmp/verify-body -w '%{http_code}' --max-time 20 "${VERIFY_URL}${path}" || true)"
+              if [ "$code" = "200" ]; then
+                echo "${path} HTTP ${code}"
+                if [ -s /tmp/verify-body ]; then
+                  cat /tmp/verify-body
+                  echo
+                fi
+                return 0
+              fi
+              echo "Attempt ${i}/12: ${path} HTTP ${code:-000} — retrying in 5s"
+              sleep 5
+            done
+            echo "Still failing ${path} after retries. Last body:"
+            cat /tmp/verify-body 2>/dev/null || true
+            echo
+            return 1
+          }
           echo "Checking ${VERIFY_URL}/api/health"
-          curl -sf "${VERIFY_URL}/api/health"
-          echo
-          code="$(curl -sf -o /dev/null -w '%{http_code}' "${VERIFY_URL}/")"
-          if [ "$code" != "200" ]; then
-            echo "Frontend returned HTTP $code"
-            exit 1
-          fi
-          echo "Frontend HTTP $code"
+          wait_http /api/health
+          wait_http /
