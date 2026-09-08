@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
+import { canManageRoster } from '../lib/permissions'
 import { fmtDate, fmtPct, fmtScore, sessionCourseName, sessionLessonName, sortSessionsByEnteredAt, toDateInput, todayInputValue } from '../lib/studentDisplay'
 
 const emptyAccount = { full_name: '', email: '', password: '', teacher_id: '' }
@@ -35,6 +36,7 @@ export default function StudentProfilePage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const isManager = profile?.role === 'manager'
+  const canEditAccount = canManageRoster(profile?.role)
   const base = isManager ? '/manager/students' : '/teacher/students'
   const [data, setData] = useState(null)
   const [courses, setCourses] = useState([])
@@ -59,7 +61,7 @@ export default function StudentProfilePage() {
     })
     const courseRows = await api.listCourses(profile)
     setCourses(courseRows)
-    if (isManager) {
+    if (canEditAccount) {
       const profiles = await api.listProfiles()
       setTeachers(profiles.filter((p) => p.role === 'teacher'))
     }
@@ -116,7 +118,7 @@ export default function StudentProfilePage() {
           full_name: account.full_name.trim(),
           email: account.email.trim() || undefined,
           password: account.password || undefined,
-          teacher_id: isManager ? account.teacher_id || null : undefined,
+          teacher_id: canEditAccount ? account.teacher_id || null : undefined,
         }),
       'Student account updated.',
     )
@@ -205,7 +207,7 @@ export default function StudentProfilePage() {
           <h1>{student.full_name}</h1>
           <p className="muted">
             {student.email || 'No login yet'}
-            {student.teacher?.full_name ? ` · ${student.teacher.full_name}` : isManager ? ' · No teacher yet' : ''}
+            {student.teacher?.full_name ? ` · ${student.teacher.full_name}` : canEditAccount ? ' · No teacher yet' : ''}
             {' · '}Notes and homework from every class are below.
           </p>
         </div>
@@ -213,7 +215,7 @@ export default function StudentProfilePage() {
 
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
-      {isManager && !student.teacher_id ? (
+      {canEditAccount && !student.teacher_id ? (
         <p className="notice">This student has no teacher. Assign one below so they appear on a teacher roster.</p>
       ) : null}
 
@@ -472,8 +474,9 @@ export default function StudentProfilePage() {
         </form>
       </section>
 
+      {canEditAccount ? (
       <section className="panel">
-        <h2>{isManager ? 'Edit student' : 'Account'}</h2>
+        <h2>Edit student</h2>
         <form onSubmit={saveAccount}>
           <div className="grid-2">
             <div className="field">
@@ -505,22 +508,20 @@ export default function StudentProfilePage() {
                 placeholder={student.has_login ? 'Leave blank to keep current password' : 'Needed with email'}
               />
             </div>
-            {isManager ? (
-              <div className="field">
-                <label>Teacher</label>
-                <select
-                  value={account.teacher_id}
-                  onChange={(e) => setAccount({ ...account, teacher_id: e.target.value })}
-                >
-                  <option value="">No teacher</option>
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
+            <div className="field">
+              <label>Teacher</label>
+              <select
+                value={account.teacher_id}
+                onChange={(e) => setAccount({ ...account, teacher_id: e.target.value })}
+              >
+                <option value="">No teacher</option>
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="actions">
             <button className="btn" type="submit">
@@ -532,6 +533,7 @@ export default function StudentProfilePage() {
           </div>
         </form>
       </section>
+      ) : null}
 
       <section className="panel">
         <h2>Test scores</h2>

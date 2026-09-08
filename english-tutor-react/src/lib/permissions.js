@@ -56,3 +56,7 @@ export function isStaff(role) {
 export function canSeeAllSessions(role) {
   return role === 'manager' || role === 'operations'
 }
+
+export function canManageRoster(role) {
+  return role === 'manager' || role === 'operations'
+}

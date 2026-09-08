@@ -794,12 +794,13 @@ export const localApi = {
 
   async createStudent(profile, payload) {
     return withDb((db) => {
+      if (profile?.role !== 'manager' && profile?.role !== 'operations') {
+        throw new Error('Operations or manager access required')
+      }
       const body = typeof payload === 'string' ? { full_name: payload } : payload || {}
       const name = String(body.full_name || '').trim()
       if (!name) throw new Error('Student name is required')
-      const teacherId =
-        profile?.role === 'manager' || profile?.role === 'operations' ? body.teacher_id || null : profile?.id
-      if (!teacherId && profile?.role === 'teacher') throw new Error('Teacher is required')
+      const teacherId = body.teacher_id || null
       const existing = (db.students || []).find(
         (s) => s.teacher_id === teacherId && s.full_name.toLowerCase() === name.toLowerCase(),
       )
@@ -852,6 +853,10 @@ export const localApi = {
 
   async updateStudent(studentId, payload) {
     return withDb((db) => {
+      const actor = db.profiles.find((p) => p.id === db.sessionUserId)
+      if (actor?.role !== 'manager' && actor?.role !== 'operations') {
+        throw new Error('Operations or manager access required')
+      }
       const student = (db.students || []).find((s) => s.id === studentId)
       if (!student) throw new Error('Student not found')
       if (payload.full_name) student.full_name = payload.full_name.trim()
@@ -902,6 +907,10 @@ export const localApi = {
 
   async deleteStudent(studentId) {
     return withDb((db) => {
+      const actor = db.profiles.find((p) => p.id === db.sessionUserId)
+      if (actor?.role !== 'manager' && actor?.role !== 'operations') {
+        throw new Error('Operations or manager access required')
+      }
       const student = (db.students || []).find((s) => s.id === studentId)
       if (!student) throw new Error('Student not found')
       db.students = db.students.filter((s) => s.id !== studentId)
