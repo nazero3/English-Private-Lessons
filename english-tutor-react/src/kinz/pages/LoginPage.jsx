@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
-import { KINZ_LOGO, WHATSAPP, kinzPath } from '../lib/format'
+import { COPY, KINZ_LOGO, WHATSAPP, kinzPath } from '../lib/format'
 
 export default function LoginPage() {
   const { profile, login } = useAuth()
   const navigate = useNavigate()
   const [phone, setPhone] = useState('')
   const [familyCode, setFamilyCode] = useState('')
+  const [showCode, setShowCode] = useState(false)
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -37,10 +38,10 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <img src={KINZ_LOGO} alt="Kinz Platform" />
-        <h1 style={{ textAlign: 'center' }}>Kinz Platform</h1>
+        <img src={KINZ_LOGO} alt="" />
+        <h1 style={{ textAlign: 'center' }}>دخول الأهل</h1>
         <p className="muted" style={{ textAlign: 'center' }}>
-          دخول الأهل — رقم الموبايل ورمز من 6 أرقام. يمكنك استخدام رمز العائلة إن أعطاك المركز إياه.
+          {COPY.outcome}
         </p>
         <form onSubmit={onSubmit}>
           <div className="field">
@@ -55,16 +56,6 @@ export default function LoginPage() {
             />
           </div>
           <div className="field">
-            <label htmlFor="code">رمز العائلة (اختياري)</label>
-            <input
-              id="code"
-              autoComplete="off"
-              placeholder="KFDEMO1"
-              value={familyCode}
-              onChange={(e) => setFamilyCode(e.target.value)}
-            />
-          </div>
-          <div className="field">
             <label htmlFor="pin">رمز الدخول</label>
             <input
               id="pin"
@@ -76,7 +67,29 @@ export default function LoginPage() {
               required
             />
           </div>
-          {error ? <p className="error">{error}</p> : null}
+          {showCode ? (
+            <div className="field">
+              <label htmlFor="code">رمز العائلة</label>
+              <input
+                id="code"
+                autoComplete="off"
+                placeholder="KFDEMO1"
+                value={familyCode}
+                onChange={(e) => setFamilyCode(e.target.value)}
+              />
+            </div>
+          ) : (
+            <p className="login-more">
+              <button type="button" className="linkish" onClick={() => setShowCode(true)}>
+                الدخول برمز العائلة بدلاً من الرقم
+              </button>
+            </p>
+          )}
+          {error ? (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          ) : null}
           <button className="btn btn-gold btn-block" type="submit" disabled={busy}>
             {busy ? 'جارٍ الدخول…' : 'دخول'}
           </button>

@@ -10,6 +10,7 @@ from ..database import get_db
 from ..deps import require_parent, require_staff
 from ..family import (
     CREDIT_REFERRAL,
+    award_activity_attendance,
     award_credit,
     award_weekly_checkin,
     current_membership,
@@ -27,6 +28,7 @@ from ..family import (
     wallet_payload,
 )
 from ..models import (
+    Activity,
     AppRole,
     ParentStudent,
     PaymentIntent,
@@ -336,6 +338,23 @@ def grant_credits(
     profile = _get_parent_profile(db, parent_id)
     if not _staff_can_see_parent(db, staff, profile) and staff.role != AppRole.manager:
         raise HTTPException(status_code=403, detail="Not your family")
+    if body.activity_id:
+        activity = db.query(Activity).filter(Activity.id == body.activity_id).first()
+        if not activity or not activity.active:
+            raise HTTPException(status_code=404, detail="Activity not found")
+        row = award_activity_attendance(
+            db,
+            parent_id=parent_id,
+            activity=activity,
+            created_by=staff.id,
+            student_id=body.student_id,
+            amount=body.amount if body.amount > 0 else None,
+        )
+        if not row:
+            raise HTTPException(status_code=400, detail="Points already added for this activity")
+        ensure_membership(db, parent_id)
+        db.commit()
+        return ledger_dict(row)
     amount = int(body.amount)
     if amount == 0:
         raise HTTPException(status_code=400, detail="Amount required")
@@ -534,6 +553,7 @@ def my_family(profile: Profile = Depends(require_parent), db: Session = Depends(
     db.commit()
     return {
         "parent": profile_to_dict(profile),
+        "family_code": profile.user.family_code if profile.user else None,
         "phone_display": display_phone(profile.user.phone if profile.user else None),
         "children": children,
         "wallet": wallet_payload(db, profile.id),

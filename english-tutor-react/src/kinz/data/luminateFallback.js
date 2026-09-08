@@ -6,13 +6,15 @@ export const FALLBACK_LUMINATE = {
       description: 'لقاء قصير مع المعلّمين ومتابعة تقدّم الأبناء.',
       starts_at: null,
       location: 'مركز كينز',
+      credit_award: 20,
     },
     {
       id: 'a2',
       title: 'مسابقة المحادثة الإنجليزية',
-      description: 'تحدٍ ودي للطلاب النشطين — الحضور يمنح نقاطاً للعائلة.',
+      description: 'تحدٍ ودي للطلاب النشطين في المحادثة.',
       starts_at: null,
       location: 'قاعة كينز',
+      credit_award: 25,
     },
     {
       id: 'a3',
@@ -20,6 +22,7 @@ export const FALLBACK_LUMINATE = {
       description: 'جلسة قصيرة في التفكير والثقة قبل الامتحانات.',
       starts_at: null,
       location: 'أونلاين + المركز',
+      credit_award: 20,
     },
   ],
   prizes: [

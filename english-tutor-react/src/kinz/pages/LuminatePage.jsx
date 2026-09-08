@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FALLBACK_LUMINATE } from '../data/luminateFallback'
 import { api } from '../lib/api'
-import { INSTAGRAM, KINZ_LOGO, SITE, TIER_LABEL, WHATSAPP, fmtDate, kinzPath } from '../lib/format'
+import { COPY, HOW_IT_WORKS, INSTAGRAM, KINZ_LOGO, POINT_SOURCES, SITE, TIER_LABEL, WHATSAPP, fmtDate, kinzPath } from '../lib/format'
+import TierLadder from '../components/TierLadder.jsx'
 
 function PersonCard({ person }) {
   const letter = (person.display_name || 'ك').slice(0, 1)
@@ -19,8 +20,11 @@ function PersonCard({ person }) {
 
 export default function LuminatePage() {
   const [data, setData] = useState(FALLBACK_LUMINATE)
+  const pointHighlights = POINT_SOURCES.slice(0, 4)
+  const hall = [...(data.vip_parents || []), ...(data.best_students || []), ...(data.good_parents || [])].slice(0, 3)
 
   useEffect(() => {
+    document.title = 'Kinz Platform'
     ;(async () => {
       try {
         const live = await api.getLuminate()
@@ -36,47 +40,108 @@ export default function LuminatePage() {
       <nav className="topnav">
         <img src={KINZ_LOGO} alt="كينز" />
         <div className="topnav-links">
+          <a href="#how">كيف تعمل</a>
           <a href="#activities">الأنشطة</a>
-          <a href="#prizes">الجوائز</a>
-          <a href="#hall">قاعة النور</a>
-          <Link className="btn btn-gold" to={kinzPath('/login')}>
-            دخول برقم الموبايل
+          <Link className="nav-login" to={kinzPath('/login')}>
+            دخول
           </Link>
         </div>
       </nav>
 
       <header className="hero">
         <div className="hero-inner">
-          <p className="gift">{data.copy?.complimentary || 'عضوية عائلة كينز مجاناً مع كل كورس'}</p>
-          <h1>
-            كينز تُضيء. <span>عائلة تتقدّم معاً.</span>
-          </h1>
-          <p>
-            تابع ابنك بعد كل حصة، اجمع نقاط الحضور، واحمل بطاقة برونز أو فضة أو بلاتين. الصفحة
-            العامة تحتفي بالشراكة لا بالدرجات.
-          </p>
-          <div className="hero-actions">
-            <Link className="btn btn-gold" to={kinzPath('/login')}>
-              دخول الأهل
-            </Link>
-            <a className="btn btn-whatsapp" href={`${WHATSAPP}?text=${encodeURIComponent('مرحباً، أريد الانضمام لعائلة كينز')}`} target="_blank" rel="noreferrer">
-              سجّل عبر واتساب
-            </a>
+          <div className="hero-copy">
+            <p className="gift">{data.copy?.complimentary || 'عضوية عائلة كينز مجاناً مع كل كورس'}</p>
+            <h1>
+              منصة كينز..
+              <span>شركاء في رحلة نجاح أبنائكم.</span>
+            </h1>
+            <p className="hero-lead">{COPY.subhead}</p>
+            <p className="hero-outcome">{COPY.outcome}</p>
+            <div className="hero-actions">
+              <Link className="btn-hero" to={kinzPath('/login')}>
+                تابع ابنك الآن
+              </Link>
+              <a
+                className="hero-textlink"
+                href={`${WHATSAPP}?text=${encodeURIComponent('مرحباً، أريد الانضمام لعائلة كينز')}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                لست مشتركاً؟ تواصل عبر واتساب
+              </a>
+            </div>
+          </div>
+          <div className="hero-stage" aria-hidden="true">
+            <div className="hero-pass hero-pass--silver" />
+            <article className="hero-pass hero-pass--front">
+              <span>عائلة كينز · برونز</span>
+              <strong>أم سارة</strong>
+              <em>{COPY.motto}</em>
+              <div>
+                <span>خصم 5٪</span>
+              </div>
+            </article>
           </div>
         </div>
       </header>
 
-      <section className="section" id="activities">
+      <section className="section" id="how">
+        <div className="section-head">
+          <h2>ثلاث خطوات، بلا تعقيد</h2>
+          <div className="gold-rule" />
+        </div>
+        <ol className="steps">
+          {HOW_IT_WORKS.map((step) => (
+            <li key={step.n} className="step">
+              <span className="step-n">{step.n}</span>
+              <div>
+                <h3>{step.title}</h3>
+                <p className="muted">{step.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="section" id="membership" style={{ background: '#f7f3e8' }}>
+        <div className="section-head">
+          <h2>بطاقتك تتغيّر معكم</h2>
+          <div className="gold-rule" />
+          <p className="muted">برونز للترحيب، فضة بعد النقاط، بلاتين لأعلى المزايا. الاستبدال لا يخفض الفئة.</p>
+        </div>
+        <TierLadder />
+      </section>
+
+      <section className="section" id="points">
+        <div className="section-head">
+          <h2>النقاط من الشراكة، لا من الضغط</h2>
+          <div className="gold-rule" />
+          <p className="muted">الحصص والواجبات والاختبارات، وكذلك حضور أنشطة المركز.</p>
+        </div>
+        <div className="grid-3">
+          {pointHighlights.map((item) => (
+            <article key={item.id} className="lift-card">
+              <h3>{item.title}</h3>
+              <p className="muted">{item.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section" id="activities" style={{ background: '#f7f3e8' }}>
         <div className="section-head">
           <h2>الأنشطة</h2>
           <div className="gold-rule" />
+          <p className="muted">الحضور يمنح نقاطاً للعائلة — يضيفها المركز بعد النشاط.</p>
         </div>
         <div className="grid-3">
           {(data.activities || []).map((item) => (
             <article key={item.id} className="lift-card">
+              <span className="badge">+{item.credit_award || 20} نقطة</span>
               <h3>{item.title}</h3>
               <p className="muted">{item.description}</p>
-              <p>
+              <p className="activity-meta">
                 {item.location || 'كينز'}
                 {item.starts_at ? ` · ${fmtDate(item.starts_at)}` : ''}
               </p>
@@ -85,14 +150,13 @@ export default function LuminatePage() {
         </div>
       </section>
 
-      <section className="section" id="prizes" style={{ background: '#f7f3e8' }}>
+      <section className="section" id="prizes">
         <div className="section-head">
-          <h2>الجوائز والخصومات</h2>
+          <h2>ماذا تفعل بالنقاط</h2>
           <div className="gold-rule" />
-          <p className="muted">النقاط من الحضور والمتابعة — البطاقة لا تهبط إذا استبدلت جائزة.</p>
         </div>
         <div className="grid-3">
-          {(data.prizes || []).map((item) => (
+          {(data.prizes || []).slice(0, 3).map((item) => (
             <article key={item.id} className="lift-card">
               <span className="badge">{item.credit_cost} نقطة</span>
               <h3>{item.title}</h3>
@@ -100,40 +164,33 @@ export default function LuminatePage() {
             </article>
           ))}
         </div>
+        <p className="section-cta">
+          <Link className="btn btn-navy" to={kinzPath('/login')}>
+            دخول لمتابعة ابنك
+          </Link>
+        </p>
       </section>
 
-      <section className="section" id="hall">
-        <div className="section-head">
-          <h2>قاعة كينز المضيئة</h2>
-          <div className="gold-rule" />
-          <p className="muted">أسماء مستعارة أو الاسم الأول فقط، وبموافقة الأهل. لا نعرض العلامات هنا.</p>
-        </div>
-        <h3 style={{ margin: '0 0 0.8rem' }}>آباء VIP</h3>
-        <div className="grid-3">
-          {(data.vip_parents || []).map((p) => (
-            <PersonCard key={p.id} person={p} />
-          ))}
-        </div>
-        <h3 style={{ margin: '2rem 0 0.8rem' }}>نجوم الحضور</h3>
-        <div className="grid-3">
-          {(data.best_students || []).map((p) => (
-            <PersonCard key={p.id} person={p} />
-          ))}
-        </div>
-        <h3 style={{ margin: '2rem 0 0.8rem' }}>شركاء متميّزون</h3>
-        <div className="grid-3">
-          {(data.good_parents || []).map((p) => (
-            <PersonCard key={p.id} person={p} />
-          ))}
-        </div>
-      </section>
+      {hall.length ? (
+        <section className="section" id="hall">
+          <div className="section-head">
+            <h2>قاعة كينز المضيئة</h2>
+            <div className="gold-rule" />
+            <p className="muted">الاسم الأول فقط، وبموافقة الأهل. لا نعرض العلامات.</p>
+          </div>
+          <div className="grid-3">
+            {hall.map((p, idx) => (
+              <PersonCard key={`${p.id}-${idx}`} person={p} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <footer className="footer">
         <p>
-          <a href={SITE}>kinz-ed.com</a> · <a href={INSTAGRAM}>إنستغرام</a> ·{' '}
-          <a href={WHATSAPP}>واتساب</a>
+          <a href={SITE}>kinz-ed.com</a> · <a href={INSTAGRAM}>إنستغرام</a> · <a href={WHATSAPP}>واتساب</a>
         </p>
-        <p>© {new Date().getFullYear()} KINZ. المعرفة هي الكنز الحقيقي.</p>
+        <p>© {new Date().getFullYear()} KINZ. {COPY.motto}</p>
       </footer>
     </div>
   )
