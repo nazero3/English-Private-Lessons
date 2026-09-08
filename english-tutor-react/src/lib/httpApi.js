@@ -391,6 +391,10 @@ export const httpApi = {
     return request(`/api/parents/${parentId}/students/${studentId}`, { method: 'DELETE' })
   },
 
+  async getLuminate() {
+    return request('/api/public/luminate')
+  },
+
   async grantParentCredits(parentId, payload) {
     return request(`/api/parents/${parentId}/credits`, { method: 'POST', body: JSON.stringify(payload) })
   },

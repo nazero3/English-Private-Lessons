@@ -302,6 +302,7 @@ class Activity(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     location: Mapped[str] = mapped_column(String, default="")
+    credit_award: Mapped[int] = mapped_column(default=20)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

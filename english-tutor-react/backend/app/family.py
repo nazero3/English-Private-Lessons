@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .models import (
+    Activity,
     CreditLedger,
     LessonSession,
     Membership,
@@ -22,6 +23,7 @@ CREDIT_HOMEWORK = 5
 CREDIT_CHECKIN = 3
 CREDIT_REFERRAL = 50
 CREDIT_STREAK = 15
+CREDIT_ACTIVITY = 20
 
 TIER_THRESHOLDS = (("platinum", 1000), ("silver", 400), ("bronze", 100))
 
@@ -38,6 +40,7 @@ SOURCE_LABELS = {
     "checkin": "زيارة التطبيق",
     "referral": "دعوة صديق",
     "streak": "سلسلة حضور",
+    "activity": "حضور نشاط",
     "bonus": "مكافأة",
     "redeem": "استبدال جائزة",
     "adjust": "تعديل",
@@ -244,6 +247,30 @@ def award_weekly_checkin(db: Session, parent_id: UUID) -> CreditLedger | None:
         source="checkin",
         source_key=f"checkin:{parent_id}:{iso.year}-W{iso.week}",
         note="زيارة أسبوعية للتطبيق",
+    )
+
+
+def award_activity_attendance(
+    db: Session,
+    *,
+    parent_id: UUID,
+    activity: Activity,
+    created_by: UUID | None = None,
+    student_id: UUID | None = None,
+    amount: int | None = None,
+) -> CreditLedger | None:
+    points = int(amount if amount else (activity.credit_award or CREDIT_ACTIVITY))
+    if points <= 0:
+        points = CREDIT_ACTIVITY
+    return award_credit(
+        db,
+        parent_id=parent_id,
+        amount=points,
+        source="activity",
+        source_key=f"activity:{activity.id}:{parent_id}",
+        student_id=student_id,
+        created_by=created_by,
+        note=activity.title,
     )
 
 

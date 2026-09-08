@@ -204,6 +204,9 @@ def patch_db_defaults(db: Session) -> None:
     conn.exec_driver_sql(
         "CREATE UNIQUE INDEX IF NOT EXISTS users_family_code_uidx ON users (family_code) WHERE family_code IS NOT NULL"
     )
+    conn.exec_driver_sql(
+        "ALTER TABLE activities ADD COLUMN IF NOT EXISTS credit_award integer NOT NULL DEFAULT 20"
+    )
     db.commit()
     _ensure_student_schema(db)
 
@@ -486,13 +489,15 @@ def ensure_family_catalog(db: Session) -> None:
                     description="لقاء قصير مع المعلّمين ومتابعة تقدّم الأبناء.",
                     starts_at=soon,
                     location="مركز كينز",
+                    credit_award=20,
                     sort_order=1,
                 ),
                 Activity(
                     title="مسابقة المحادثة الإنجليزية",
-                    description="تحدٍ ودي للطلاب النشطين — الحضور يمنح نقاطاً للعائلة.",
+                    description="تحدٍ ودي للطلاب النشطين في المحادثة.",
                     starts_at=soon + timedelta(days=14),
                     location="قاعة كينز",
+                    credit_award=25,
                     sort_order=2,
                 ),
                 Activity(
@@ -500,6 +505,7 @@ def ensure_family_catalog(db: Session) -> None:
                     description="جلسة قصيرة في التفكير والثقة قبل الامتحانات.",
                     starts_at=soon + timedelta(days=28),
                     location="أونلاين + المركز",
+                    credit_award=20,
                     sort_order=3,
                 ),
             ]

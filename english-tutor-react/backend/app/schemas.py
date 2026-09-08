@@ -226,10 +226,11 @@ class ParentLinkStudent(BaseModel):
 
 
 class ParentCreditGrant(BaseModel):
-    amount: int
+    amount: int = 0
     source: str = "bonus"
     note: str = ""
     student_id: UUID | None = None
+    activity_id: UUID | None = None
 
 
 class PayIntentCreate(BaseModel):

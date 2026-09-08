@@ -1,28 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import ChildSwitcher from '../components/ChildSwitcher.jsx'
 import ScoreChips from '../components/ScoreChips.jsx'
 import { useAuth } from '../lib/auth.jsx'
-import { CHILD_KEY, fmtDate, fmtScore } from '../lib/format'
+import { fmtDate, fmtScore } from '../lib/format'
+import { useSelectedChild } from '../lib/useSelectedChild'
 
 export default function ChildPage() {
   const { family } = useAuth()
-  const childrenList = family?.children || []
-  const [childId, setChildId] = useState(() => localStorage.getItem(CHILD_KEY) || childrenList[0]?.student?.id)
+  const { childrenList, child, selectChild } = useSelectedChild(family?.children)
   const [open, setOpen] = useState(null)
-
-  useEffect(() => {
-    if (!childId && childrenList[0]?.student?.id) setChildId(childrenList[0].student.id)
-  }, [childrenList, childId])
-
-  const child = useMemo(
-    () => childrenList.find((c) => c.student?.id === childId) || childrenList[0],
-    [childrenList, childId],
-  )
-
-  const selectChild = (id) => {
-    setChildId(id)
-    localStorage.setItem(CHILD_KEY, id)
-  }
+  const last = child?.sessions?.[0]
 
   if (!child) {
     return <p className="muted">لم يُربط ابن بعد. اطلب من المركز ربط رقمك بسجل الطالب.</p>
@@ -33,6 +20,12 @@ export default function ChildPage() {
       <ChildSwitcher childrenList={childrenList} currentId={child.student?.id} onChange={selectChild} />
       <h1 style={{ marginTop: '0.8rem' }}>{child.student?.full_name}</h1>
       <p className="muted">المعلّم: {child.student?.teacher?.full_name || '—'}</p>
+      {last?.homework_assigned && last.homework_score == null ? (
+        <section className="panel need-card">
+          <p className="welcome-kicker">يحتاج متابعتك</p>
+          <p>واجب من آخر حصة: {last.homework_assigned}</p>
+        </section>
+      ) : null}
       <ScoreChips summary={child.summary} />
 
       <section className="panel">

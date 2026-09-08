@@ -1306,6 +1306,9 @@ export const localApi = {
   async unlinkParentStudent() {
     throw new Error('Kinz Family parents require the FastAPI backend')
   },
+  async getLuminate() {
+    throw new Error('Kinz Family catalog requires the FastAPI backend')
+  },
   async grantParentCredits() {
     throw new Error('Kinz Family parents require the FastAPI backend')
   },

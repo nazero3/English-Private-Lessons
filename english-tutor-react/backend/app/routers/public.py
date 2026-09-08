@@ -48,6 +48,7 @@ def luminate(db: Session = Depends(get_db)):
                 "description": a.description or "",
                 "starts_at": a.starts_at.isoformat() if a.starts_at else None,
                 "location": a.location or "",
+                "credit_award": int(a.credit_award or 20),
             }
             for a in activities
         ],

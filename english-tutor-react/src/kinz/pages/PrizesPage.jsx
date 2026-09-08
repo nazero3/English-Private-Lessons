@@ -36,8 +36,8 @@ export default function PrizesPage() {
 
   return (
     <div>
-      <h1>الجوائز</h1>
-      <p className="muted">الرصيد الحالي: {family?.wallet?.balance ?? 0} نقطة</p>
+      <h1>مركز المكافآت</h1>
+      <p className="muted">الرصيد الحالي: {family?.wallet?.balance ?? 0} نقطة — استبدل بخصومات وحصص مراجعة.</p>
       {error ? <p className="error">{error}</p> : null}
       {message ? <p className="success">{message}</p> : null}
       {(family?.prizes || []).map((prize) => (

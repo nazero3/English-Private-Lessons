@@ -21,11 +21,19 @@ export default function ParentsPage() {
   const [linkStudentId, setLinkStudentId] = useState('')
   const [creditNote, setCreditNote] = useState('دعوة صديق')
   const [busyId, setBusyId] = useState('')
+  const [activities, setActivities] = useState([])
+  const [activityId, setActivityId] = useState('')
 
   const load = async () => {
     const [p, s] = await Promise.all([api.listParents(), api.listStudents(profile)])
     setParents(p)
     setStudents(s)
+    try {
+      const lum = await api.getLuminate()
+      setActivities(lum.activities || [])
+    } catch {
+      setActivities([])
+    }
     if (isManager) {
       setPayments(await api.listPayments())
       setRedemptions(await api.listPrizeRequests())
@@ -296,6 +304,34 @@ export default function ParentsPage() {
                   </button>
                 </p>
               ))}
+              <div className="field">
+                <label>Activity attendance points</label>
+                <select value={activityId} onChange={(e) => setActivityId(e.target.value)}>
+                  <option value="">Choose activity…</option>
+                  {activities.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.title} (+{a.credit_award || 20})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={!activityId}
+                  onClick={() =>
+                    run(
+                      () =>
+                        api.grantParentCredits(selected.id, {
+                          activity_id: activityId,
+                          source: 'activity',
+                        }),
+                      'Activity points added.',
+                    )
+                  }
+                >
+                  Award attendance points
+                </button>
+              </div>
               <div className="actions">
                 <button
                   type="button"
