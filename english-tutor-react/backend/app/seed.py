@@ -20,6 +20,7 @@ from .models import (
     TeacherCourseAssignment,
     User,
 )
+from .student_identity import backfill_session_student_names
 
 MANAGER_ID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 TEACHER_ID = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
@@ -118,6 +119,12 @@ def _ensure_student_schema(db: Session) -> None:
         "CREATE UNIQUE INDEX IF NOT EXISTS students_teacher_id_full_name_uidx "
         "ON students (teacher_id, lower(full_name)) WHERE teacher_id IS NOT NULL",
     )
+    _ddl(db, "CREATE INDEX IF NOT EXISTS lesson_sessions_student_idx ON lesson_sessions (student_id)")
+    try:
+        backfill_session_student_names(db)
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def patch_db_defaults(db: Session) -> None:

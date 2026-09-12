@@ -311,6 +311,36 @@ function avg(values) {
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10
 }
 
+function liveSessionName(db, session) {
+  if (session?.student_id) {
+    const student = (db.students || []).find((s) => s.id === session.student_id)
+    if (student?.full_name) return student.full_name
+  }
+  return (session?.student_name || '').trim() || 'Student'
+}
+
+function syncStudentHistory(db, student, previousName) {
+  const name = student.full_name
+  const old = String(previousName || '').trim().toLowerCase()
+  for (const session of db.sessions || []) {
+    if (session.student_id === student.id) {
+      session.student_name = name
+      continue
+    }
+    if (
+      session.student_id ||
+      !student.teacher_id ||
+      session.teacher_id !== student.teacher_id ||
+      !old ||
+      String(session.student_name || '').trim().toLowerCase() !== old
+    ) {
+      continue
+    }
+    session.student_id = student.id
+    session.student_name = name
+  }
+}
+
 function localPortal(db, student) {
   const sessions = (db.sessions || [])
     .filter(
@@ -340,6 +370,7 @@ function localPortal(db, student) {
           : null
       return {
         ...s,
+        student_name: liveSessionName(db, s),
         homework_assigned: s.homework_assigned || '',
         homework: (lesson?.homework || []).map((item) => ({
           id: item.id,
@@ -859,6 +890,7 @@ export const localApi = {
       }
       const student = (db.students || []).find((s) => s.id === studentId)
       if (!student) throw new Error('Student not found')
+      const previousName = student.full_name
       if (payload.full_name) student.full_name = payload.full_name.trim()
       if (Object.prototype.hasOwnProperty.call(payload, 'teacher_id')) {
         const nextTeacher = payload.teacher_id || null
@@ -901,6 +933,7 @@ export const localApi = {
         student.email = email
         student.has_login = true
       }
+      syncStudentHistory(db, student, previousName)
       return student
     })
   },
@@ -1102,6 +1135,7 @@ export const localApi = {
       const packCourse = db.courses.find((c) => c.id === packLesson?.course_id)
       return {
         ...s,
+        student_name: liveSessionName(db, s),
         lesson:
           packLesson ||
           (s.unit_label || s.unit_number != null

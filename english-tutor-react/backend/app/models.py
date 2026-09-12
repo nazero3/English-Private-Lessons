@@ -107,6 +107,7 @@ class TeacherCourseAssignment(Base):
 
 class LessonSession(Base):
     __tablename__ = "lesson_sessions"
+    __table_args__ = (Index("lesson_sessions_student_idx", "student_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()")
@@ -121,7 +122,9 @@ class LessonSession(Base):
     student_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("students.id", ondelete="SET NULL"), nullable=True
     )
+    # Snapshot only: live display name comes from students.full_name via student_id.
     student_name: Mapped[str] = mapped_column(String, default="Student")
+    student: Mapped["Student | None"] = relationship(foreign_keys=[student_id])
     worksheet_score: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     worksheet_total: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     quiz_score: Mapped[float | None] = mapped_column(Numeric, nullable=True)
