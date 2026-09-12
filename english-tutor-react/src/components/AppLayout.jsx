@@ -3,7 +3,14 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } 
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { coursebookSubjectFromPath } from '../lib/coursebookRoutes'
-import { homePath, canAccessCoursebookGrade, canAccessPrivateLessons, appDisplayName } from '../lib/permissions'
+import {
+  homePath,
+  canAccessCoursebookGrade,
+  canAccessMathGrade,
+  canAccessPrivateLessons,
+  appDisplayName,
+  staffRoleLabel,
+} from '../lib/permissions'
 
 function navClass({ isActive }) {
   return `btn secondary${isActive ? ' is-nav-on' : ''}`
@@ -267,14 +274,9 @@ export function AppLayout() {
   return (
     <div className={`app-shell${tabs.length ? ' has-bottom-nav' : ''}`}>
       <header className="topbar no-print">
-        <div>
-          <Link className="brand" to={home}>
-            {appDisplayName(profile?.role)}
-          </Link>
-          <div className="muted" style={{ fontSize: '0.85rem' }}>
-            {profile?.full_name}
-          </div>
-        </div>
+        <Link className="brand" to={home}>
+          {appDisplayName(profile?.role)}
+        </Link>
         <div className="actions">
           <div className="topbar-nav">
             {profile?.role === 'manager' ? (
@@ -412,9 +414,19 @@ export function AppLayout() {
             </div>
           ) : null}
 
-          <button type="button" className="btn ghost topbar-signout" onClick={() => signOut()}>
-            Sign out
-          </button>
+          <div className="topbar-account">
+            {profile?.full_name ? (
+              <div className="topbar-account__who">
+                <span className="topbar-account__name">{profile.full_name}</span>
+                {staffRoleLabel(profile.role) ? (
+                  <span className="topbar-account__role">{staffRoleLabel(profile.role)}</span>
+                ) : null}
+              </div>
+            ) : null}
+            <button type="button" className="btn ghost topbar-signout" onClick={() => signOut()}>
+              Sign out
+            </button>
+          </div>
 
           <div className="more-wrap topbar-more">
             <button
@@ -431,6 +443,14 @@ export function AppLayout() {
             </button>
             {openMore ? (
               <div className="more-panel" role="menu">
+                {profile?.full_name ? (
+                  <div className="more-panel__who">
+                    <strong>{profile.full_name}</strong>
+                    {staffRoleLabel(profile.role) ? (
+                      <span className="muted">{staffRoleLabel(profile.role)}</span>
+                    ) : null}
+                  </div>
+                ) : null}
                 {extra.map((item) => (
                   <Link
                     key={item.to}
