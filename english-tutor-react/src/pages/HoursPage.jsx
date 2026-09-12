@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import {
@@ -20,6 +20,8 @@ export default function HoursPage() {
   const isManager = profile?.role === 'manager'
   const canSeeTeachers = profile?.role === 'manager' || profile?.role === 'operations'
   const home = homePath(profile?.role)
+  const location = useLocation()
+  const atHome = location.pathname === home
   const [searchParams, setSearchParams] = useSearchParams()
   const view = !canSeeTeachers || searchParams.get('by') === 'students' ? 'students' : 'teachers'
   const [month, setMonth] = useState(currentMonthValue)
@@ -315,9 +317,11 @@ export default function HoursPage() {
 
   return (
     <div>
-      <p className="crumb">
-        <Link to={home}>← Back</Link>
-      </p>
+      {atHome ? null : (
+        <p className="crumb">
+          <Link to={home}>← Back</Link>
+        </p>
+      )}
       <header className="teacher-dash__hero">
         <div>
           <h1>{view === 'students' ? 'Hours by student' : 'Teacher hours'}</h1>

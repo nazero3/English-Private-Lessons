@@ -56,6 +56,13 @@ export function appDisplayName(role) {
   return 'Kinz Teacher Platform'
 }
 
+export function staffRoleLabel(role) {
+  if (role === 'manager') return 'Manager'
+  if (role === 'operations') return 'Operations'
+  if (role === 'teacher') return 'Teacher'
+  return ''
+}
+
 export function isStaff(role) {
   return role === 'manager' || role === 'teacher'
 }
