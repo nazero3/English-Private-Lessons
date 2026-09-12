@@ -5,18 +5,10 @@ import { MATH_GRADES } from '../data/mathRegistry'
 import { PHYSICS_GRADES } from '../data/physicsRegistry'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
+import { currentMonthValue, formatHours, monthBounds, sessionInMonth } from '../lib/hours'
+import { hoursPath } from '../lib/permissions'
 import { clipText, sortSessionsByEnteredAt } from '../lib/studentDisplay'
 import LogClassForm from '../components/teacher/LogClassForm'
-
-function monthStartIso() {
-  const d = new Date()
-  return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
-}
-
-function formatHours(n) {
-  const value = Number(n) || 0
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
-}
 
 export default function TeacherHome() {
   const {
@@ -58,13 +50,8 @@ export default function TeacherHome() {
     courses.length > 0 || canAccessPrivateLessons || mathGrades.length > 0 || physicsGrades.length > 0
 
   const monthHours = useMemo(() => {
-    const start = monthStartIso()
-    return sessions.reduce((sum, s) => {
-      if (s.hours == null || s.hours === '') return sum
-      const t = new Date(s.session_date || s.created_at).getTime()
-      if (t < start) return sum
-      return sum + Number(s.hours)
-    }, 0)
+    const bounds = monthBounds(currentMonthValue())
+    return sessions.reduce((sum, s) => (sessionInMonth(s, bounds) ? sum + Number(s.hours) : sum), 0)
   }, [sessions])
 
   const recent = [...sessions].sort(sortSessionsByEnteredAt).slice(0, 4)
@@ -90,9 +77,15 @@ export default function TeacherHome() {
           <h1>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</h1>
           <p className="muted">After class, log the hours. Materials are below when you need them.</p>
         </div>
-        <div className="teacher-dash__stat">
-          <span className="muted">This month</span>
-          <strong>{formatHours(monthHours)}h</strong>
+        <div className="hours-summary-card">
+          <div className="hours-summary-card__total">
+            <span className="muted">This month</span>
+            <strong>{formatHours(monthHours)}h</strong>
+          </div>
+          <p className="muted hours-summary-card__hint">Hours given to each student</p>
+          <Link className="btn compact" to={hoursPath(profile?.role)}>
+            Details
+          </Link>
         </div>
       </header>
 

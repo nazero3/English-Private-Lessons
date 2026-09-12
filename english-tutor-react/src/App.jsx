@@ -190,6 +190,7 @@ export default function App() {
                 <Route path="/teacher/lessons/:lessonId/review-quiz" element={<ReviewQuizPage />} />
                 <Route path="/teacher/lessons/:lessonId/check/:kind" element={<CheckModePage />} />
                 <Route path="/teacher/sessions" element={<SessionsPage />} />
+                <Route path="/teacher/hours" element={<HoursPage />} />
                 <Route path="/teacher/students" element={<StudentsPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentProfilePage />} />
                 <Route path="/teacher/parents" element={<ParentsPage />} />
