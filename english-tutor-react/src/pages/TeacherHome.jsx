@@ -77,16 +77,15 @@ export default function TeacherHome() {
           <h1>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</h1>
           <p className="muted">After class, log the hours. Materials are below when you need them.</p>
         </div>
-        <div className="hours-summary-card">
-          <div className="hours-summary-card__total">
-            <span className="muted">This month</span>
-            <strong>{formatHours(monthHours)}h</strong>
-          </div>
-          <p className="muted hours-summary-card__hint">Hours given to each student</p>
-          <Link className="btn compact" to={hoursPath(profile?.role)}>
-            Details
-          </Link>
-        </div>
+        <Link
+          className="hours-highlight"
+          to={hoursPath(profile?.role)}
+          aria-label={`This month, ${formatHours(monthHours)} hours. Open details by student.`}
+        >
+          <span className="muted">This month</span>
+          <strong>{formatHours(monthHours)}h</strong>
+          <span className="btn compact hours-highlight__btn">Details</span>
+        </Link>
       </header>
 
       {error ? <p className="error">{error}</p> : null}

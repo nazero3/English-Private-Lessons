@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { formatHours, currentMonthValue, monthBounds, sessionInMonth } from '../lib/hours'
 import { useAuth } from '../lib/AuthContext'
 import { homePath, hoursPath } from '../lib/permissions'
-import { sortSessionsByEnteredAt } from '../lib/studentDisplay'
+import { fmtDate, sortSessionsByEnteredAt } from '../lib/studentDisplay'
 
 function sessionCourseTitle(s) {
   return s.course?.title || s.course_title || '—'
@@ -255,7 +255,7 @@ export default function SessionsPage() {
           <p className="muted" style={{ marginTop: 0 }}>
             {focusedSession.student_name}
             {' · '}
-            {new Date(focusedSession.session_date || focusedSession.created_at).toLocaleString()}
+            {fmtDate(focusedSession.session_date || focusedSession.created_at)}
             {focusedSession.course?.title ? ` · ${focusedSession.course.title}` : ''}
             {focusedSession.lesson?.unit_number != null
               ? ` · U${focusedSession.lesson.unit_number}`
@@ -422,7 +422,7 @@ export default function SessionsPage() {
                   ) : null}
                   <div>
                     <dt>Date</dt>
-                    <dd>{new Date(s.session_date || s.created_at).toLocaleString()}</dd>
+                    <dd>{fmtDate(s.session_date || s.created_at)}</dd>
                   </div>
                   <div>
                     <dt>Hours</dt>

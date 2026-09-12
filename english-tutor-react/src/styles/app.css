@@ -1581,53 +1581,42 @@ button.notify-item:disabled {
   margin: 0;
 }
 
-.teacher-dash__stat {
+.hours-highlight {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 0.15rem;
-  padding: 0.65rem 0.9rem;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  min-width: 7.5rem;
-}
-
-.teacher-dash__stat strong {
-  font-family: var(--font-display);
-  font-size: 1.55rem;
-  line-height: 1;
-}
-
-.hours-summary-card {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   gap: 0.45rem;
-  padding: 0.75rem 1rem;
-  background: var(--card);
-  border: 1px solid var(--line);
+  min-width: 9.75rem;
+  padding: 0.8rem 1.15rem 0.9rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--highlight);
   border-radius: var(--radius);
-  min-width: 11rem;
+  color: inherit;
+  text-decoration: none;
+  text-align: center;
 }
 
-.hours-summary-card__total {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.15rem;
-}
-
-.hours-summary-card__total strong {
+.hours-highlight strong {
   font-family: var(--font-display);
-  font-size: 1.55rem;
+  font-size: 2rem;
   line-height: 1;
+  color: var(--accent);
 }
 
-.hours-summary-card__hint {
-  margin: 0;
-  font-size: 0.85rem;
-  text-align: right;
+.hours-highlight__btn {
+  pointer-events: none;
+  min-height: 38px;
+  padding: 0.35rem 1rem;
+}
+
+.hours-highlight:hover,
+.hours-highlight:focus-visible {
+  filter: brightness(0.98);
+}
+
+.hours-highlight:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .hours-toolbar {
@@ -1661,14 +1650,8 @@ button.notify-item:disabled {
 }
 
 @media (max-width: 900px) {
-  .hours-summary-card__total,
-  .hours-summary-card__hint,
   .hours-toolbar__side {
     align-items: flex-start;
-    text-align: left;
-  }
-
-  .hours-summary-card__hint {
     text-align: left;
   }
 }
@@ -1930,8 +1913,8 @@ button.notify-item:disabled {
     flex-direction: column;
   }
 
-  .teacher-dash__stat {
-    align-items: flex-start;
+  .hours-highlight {
+    align-self: flex-start;
   }
 
   .log-class__row {
