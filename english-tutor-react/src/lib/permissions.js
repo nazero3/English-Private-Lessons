@@ -44,6 +44,13 @@ export function homePath(role) {
   return '/teacher'
 }
 
+export function hoursPath(role, { byStudent } = {}) {
+  const base =
+    role === 'manager' ? '/manager/hours' : role === 'operations' ? '/operations' : '/teacher/hours'
+  if (role === 'teacher') return base
+  return byStudent ? `${base}?by=students` : base
+}
+
 export function appDisplayName(role) {
   if (role === 'student' || role === 'parent') return 'Kinz Platform'
   return 'Kinz Teacher Platform'

@@ -2,15 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import LogClassForm from '../components/teacher/LogClassForm'
 import { api } from '../lib/api'
+import { formatHours, currentMonthValue, monthBounds, sessionInMonth } from '../lib/hours'
 import { useAuth } from '../lib/AuthContext'
-import { homePath } from '../lib/permissions'
+import { homePath, hoursPath } from '../lib/permissions'
 import { sortSessionsByEnteredAt } from '../lib/studentDisplay'
-
-function formatHours(n) {
-  if (n == null || n === '') return '—'
-  const value = Number(n)
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
-}
 
 function sessionCourseTitle(s) {
   return s.course?.title || s.course_title || '—'
@@ -211,14 +206,8 @@ export default function SessionsPage() {
   }
 
   const monthHours = useMemo(() => {
-    const start = new Date()
-    start.setDate(1)
-    start.setHours(0, 0, 0, 0)
-    return sessions.reduce((sum, s) => {
-      if (s.hours == null || s.hours === '') return sum
-      if (new Date(s.session_date || s.created_at) < start) return sum
-      return sum + Number(s.hours)
-    }, 0)
+    const bounds = monthBounds(currentMonthValue())
+    return sessions.reduce((sum, s) => (sessionInMonth(s, bounds) ? sum + Number(s.hours) : sum), 0)
   }, [sessions])
 
   return (
@@ -236,13 +225,21 @@ export default function SessionsPage() {
               : 'Your classes'}
           </h1>
           <p className="muted">
-            {canLogSession
-              ? `This month · ${formatHours(monthHours)} hours`
-              : isManager
-                ? 'Review teacher classes and leave feedback.'
-                : isOperations
-                  ? 'Every logged class with hours. Open Hours for monthly totals.'
-                  : ''}
+            {canLogSession ? (
+              <>
+                This month · {formatHours(monthHours)} hours.{' '}
+                <Link to={hoursPath(profile?.role)}>Hours by student</Link>
+              </>
+            ) : isManager ? (
+              'Review teacher classes and leave feedback.'
+            ) : isOperations ? (
+              <>
+                Every logged class with hours.{' '}
+                <Link to={hoursPath(profile?.role, { byStudent: true })}>Hours by student</Link>
+              </>
+            ) : (
+              ''
+            )}
           </p>
         </div>
         <button type="button" className="btn secondary compact" onClick={exportCsv} disabled={!visibleSessions.length}>
