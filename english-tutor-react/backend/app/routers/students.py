@@ -21,6 +21,7 @@ from ..models import (
     WeeklyScheduleSlot,
 )
 from ..schemas import StudentCreate, StudentScoreCreate, StudentScoreUpdate, StudentUpdate
+from ..student_identity import session_display_name, sync_student_history
 
 router = APIRouter(tags=["students"])
 
@@ -68,7 +69,9 @@ def _score_dict(row: StudentScore) -> dict:
     }
 
 
-def _session_for_student(session: LessonSession, db: Session, *, include_answers: bool) -> dict:
+def _session_for_student(
+    session: LessonSession, db: Session, *, include_answers: bool, student: Student | None = None
+) -> dict:
     lesson = db.query(Lesson).filter(Lesson.id == session.lesson_id).first() if session.lesson_id else None
     course = db.query(Course).filter(Course.id == lesson.course_id).first() if lesson else None
     homework_items = lesson.homework if lesson else []
@@ -94,7 +97,7 @@ def _session_for_student(session: LessonSession, db: Session, *, include_answers
         "teacher_id": str(session.teacher_id),
         "lesson_id": str(session.lesson_id) if session.lesson_id else None,
         "student_id": str(session.student_id) if session.student_id else None,
-        "student_name": session.student_name,
+        "student_name": session_display_name(session, student),
         "worksheet_score": float(session.worksheet_score) if session.worksheet_score is not None else None,
         "worksheet_total": float(session.worksheet_total) if session.worksheet_total is not None else None,
         "quiz_score": float(session.quiz_score) if session.quiz_score is not None else None,
@@ -173,6 +176,7 @@ def _student_dict(row: Student, db: Session) -> dict:
 def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> dict:
     sessions = (
         db.query(LessonSession)
+        .options(joinedload(LessonSession.student))
         .filter(LessonSession.student_id == student.id)
         .order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
         .all()
@@ -180,6 +184,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
     if not sessions and student.teacher_id:
         sessions = (
             db.query(LessonSession)
+            .options(joinedload(LessonSession.student))
             .filter(
                 LessonSession.teacher_id == student.teacher_id,
                 LessonSession.student_name.ilike(student.full_name),
@@ -193,7 +198,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
         .order_by(StudentScore.test_date.desc())
         .all()
     )
-    session_rows = [_session_for_student(s, db, include_answers=include_answers) for s in sessions]
+    session_rows = [_session_for_student(s, db, include_answers=include_answers, student=student) for s in sessions]
     test_rows = [_score_dict(t) for t in tests]
     return {
         "student": _student_dict(student, db),
@@ -319,6 +324,7 @@ def update_student(
 ):
     student = _get_managed_student(db, profile, student_id)
     data = body.model_dump(exclude_unset=True)
+    previous_name = student.full_name
     if body.full_name is not None:
         name = body.full_name.strip()
         if not name:
@@ -385,6 +391,8 @@ def update_student(
             if not email or not body.password:
                 raise HTTPException(status_code=400, detail="Email and password are required to create a login")
             student.user_id = _create_login(db, email, body.password, student.full_name)
+
+    sync_student_history(db, student, previous_name=previous_name)
 
     try:
         db.commit()

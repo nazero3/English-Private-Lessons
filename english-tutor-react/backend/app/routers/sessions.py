@@ -11,6 +11,7 @@ from ..deps import can_see_all_sessions, get_current_profile, require_manager, r
 from ..family import on_session_saved
 from ..models import AppRole, Course, Lesson, LessonSession, Notification, Profile, Student
 from ..schemas import SessionCreate, SessionFeedback, SessionUpdate
+from ..student_identity import session_display_name
 
 router = APIRouter(tags=["sessions"])
 
@@ -97,7 +98,7 @@ def _session_dict(session: LessonSession, db: Session) -> dict:
         "teacher_id": str(session.teacher_id),
         "lesson_id": str(session.lesson_id) if session.lesson_id else None,
         "student_id": str(session.student_id) if session.student_id else None,
-        "student_name": session.student_name,
+        "student_name": session_display_name(session),
         "worksheet_score": float(session.worksheet_score) if session.worksheet_score is not None else None,
         "worksheet_total": float(session.worksheet_total) if session.worksheet_total is not None else None,
         "quiz_score": float(session.quiz_score) if session.quiz_score is not None else None,
@@ -155,7 +156,11 @@ def list_sessions(profile: Profile = Depends(get_current_profile), db: Session =
         raise HTTPException(status_code=403, detail="Use the student portal")
     if profile.role not in (AppRole.manager, AppRole.teacher, AppRole.operations):
         raise HTTPException(status_code=403, detail="Not allowed")
-    q = db.query(LessonSession).order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
+    q = (
+        db.query(LessonSession)
+        .options(joinedload(LessonSession.student))
+        .order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
+    )
     if not can_see_all_sessions(profile):
         q = q.filter(LessonSession.teacher_id == profile.id)
     return [_session_dict(s, db) for s in q.all()]
@@ -426,7 +431,7 @@ def add_feedback(
             type="manager_feedback",
             title="New manager feedback",
             message=(
-                f"{manager.full_name or 'Manager'} left feedback on {session.student_name}'s session ({label}): "
+                f"{manager.full_name or 'Manager'} left feedback on {session_display_name(session)}'s session ({label}): "
                 f"{preview}"
             ),
         )
