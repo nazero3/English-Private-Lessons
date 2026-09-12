@@ -13,5 +13,7 @@ dist/
 *.log
 .DS_Store
 
-# Local Cursor MCP secrets (example lives in english-tutor-react/mcp/mcp.json.example)
-.cursor/mcp.json
+# Local Cursor editor data — not part of the app
+.cursor/
+AGENTS.md
+kinzfamilies.pptx
