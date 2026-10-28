@@ -1,7 +1,19 @@
 # Auto-TLS when DOMAIN is set. Caddy obtains certs from Let's Encrypt.
 # For IP-only testing, leave DOMAIN empty — nginx serves :80 directly (no Caddy).
+#
+# /erp-test/* → Kinz ERP FastAPI test stack (compose project kinz-erp-test, service erp_api).
+# Requires erp_api on the same Docker network as this Caddy (see kinz-erp backend/deploy/erp-test/).
 
 {$DOMAIN} {
 	encode gzip
-	reverse_proxy nginx:80
+
+	handle_path /erp-test/* {
+		reverse_proxy erp_api:8001
+	}
+
+	redir /erp-test /erp-test/ 308
+
+	handle {
+		reverse_proxy nginx:80
+	}
 }
