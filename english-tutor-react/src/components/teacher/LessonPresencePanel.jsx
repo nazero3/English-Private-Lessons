@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../lib/api'
 import {
@@ -82,6 +82,7 @@ export default function LessonPresencePanel({ profile, onSaved }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const courseRequest = useRef(0)
   const [form, setForm] = useState({
     course_key: '',
     lesson_id: '',
@@ -131,14 +132,26 @@ export default function LessonPresencePanel({ profile, onSaved }) {
       setForm((prev) => ({ ...prev, course_key: '', lesson_id: '' }))
       return
     }
-    const units =
-      course.kind === 'pack' ? packUnits(await api.listLessons(course.id)) : unitsForLogCourse(course)
-    setLessons(units)
-    setForm((prev) => ({
-      ...prev,
-      course_key: courseKey,
-      lesson_id: units[0]?.id || '',
-    }))
+    const requestId = courseRequest.current + 1
+    courseRequest.current = requestId
+    setLessons([])
+    setForm((prev) => ({ ...prev, course_key: courseKey, lesson_id: '' }))
+    try {
+      const units =
+        course.kind === 'pack' ? packUnits(await api.listLessons(course.id)) : unitsForLogCourse(course)
+      if (requestId !== courseRequest.current) return
+      setLessons(units)
+      setForm((prev) => ({
+        ...prev,
+        course_key: courseKey,
+        lesson_id: units[0]?.id || '',
+      }))
+    } catch (err) {
+      if (requestId !== courseRequest.current) return
+      setLessons([])
+      setForm((prev) => ({ ...prev, course_key: courseKey, lesson_id: '' }))
+      setError(err.message || 'Could not load lessons for this course')
+    }
   }
 
   const beginWrapUp = async () => {
@@ -157,12 +170,8 @@ export default function LessonPresencePanel({ profile, onSaved }) {
     })
     setWrapping(true)
     if (courses[0]) {
-      try {
-        await applyCourse(courses[0].key, courses)
-        setForm((prev) => ({ ...prev, hours: suggested }))
-      } catch (e) {
-        setError(e.message)
-      }
+      await applyCourse(courses[0].key, courses)
+      setForm((prev) => ({ ...prev, hours: suggested }))
     }
   }
 

@@ -116,6 +116,14 @@ class LessonSession(Base):
             unique=True,
             postgresql_where=text("status = 'in_progress'"),
         ),
+        # Status board reads the newest finished lesson per teacher every refresh.
+        Index(
+            "lesson_sessions_latest_completed_per_teacher",
+            "teacher_id",
+            text("ended_at DESC NULLS LAST"),
+            text("created_at DESC"),
+            postgresql_where=text("status = 'completed'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

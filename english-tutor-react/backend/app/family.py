@@ -19,6 +19,8 @@ from .models import (
 )
 
 CREDIT_ATTENDANCE = 10
+# Complimentary access saved when a child has a finished lesson in this window.
+ENROLLMENT_ACCESS_DAYS = 30
 CREDIT_HOMEWORK = 5
 CREDIT_CHECKIN = 3
 CREDIT_REFERRAL = 50
@@ -220,6 +222,7 @@ def maybe_award_streak(db: Session, parent_id: UUID, student_id: UUID) -> None:
                 LessonSession.student_id == student_id,
                 LessonSession.session_date >= start,
                 LessonSession.session_date < end,
+                logged_class_clause(),
             )
             .first()
         )
@@ -274,11 +277,25 @@ def award_activity_attendance(
     )
 
 
-def student_is_enrolled(db: Session, student_id: UUID, days: int = 30) -> bool:
+def logged_class_clause():
+    """A finished class. Starting a lesson does not count as attendance."""
+    return LessonSession.status == "completed"
+
+
+def student_is_enrolled(db: Session, student_id: UUID, days: int = ENROLLMENT_ACCESS_DAYS) -> bool:
+    """True when the child has a finished lesson in the window.
+
+    Family complimentary access is granted from this check. An in-progress
+    lesson, including one the teacher later cancels, must not open that month.
+    """
     since = datetime.now(UTC) - timedelta(days=days)
     return (
         db.query(LessonSession)
-        .filter(LessonSession.student_id == student_id, LessonSession.session_date >= since)
+        .filter(
+            LessonSession.student_id == student_id,
+            LessonSession.session_date >= since,
+            logged_class_clause(),
+        )
         .first()
         is not None
     )
@@ -289,6 +306,28 @@ def parent_has_enrolled_child(db: Session, parent_id: UUID) -> bool:
         if student_is_enrolled(db, student.id):
             return True
     return False
+
+
+def _parent_has_finished_lesson(db: Session, parent_id: UUID) -> bool:
+    for student, _link in students_for_parent(db, parent_id):
+        hit = (
+            db.query(LessonSession)
+            .filter(LessonSession.student_id == student.id, logged_class_clause())
+            .first()
+        )
+        if hit:
+            return True
+    return False
+
+
+def _is_enrollment_grant(sub: Subscription) -> bool:
+    """The 30-day free month from a finished lesson, not a longer welcome row."""
+    if sub.status != "complimentary" or sub.period != "enrolled":
+        return False
+    if not sub.starts_at or not sub.ends_at:
+        return False
+    length = sub.ends_at - sub.starts_at
+    return timedelta(0) < length <= timedelta(days=ENROLLMENT_ACCESS_DAYS + 1)
 
 
 def ensure_subscription(db: Session, parent_id: UUID) -> Subscription | None:
@@ -315,12 +354,18 @@ def ensure_subscription(db: Session, parent_id: UUID) -> Subscription | None:
             period="enrolled",
             price=0,
             starts_at=now,
-            ends_at=now + timedelta(days=30),
+            ends_at=now + timedelta(days=ENROLLMENT_ACCESS_DAYS),
             complimentary_reason="عضوية مجانية مع كورس كينز",
         )
         db.add(row)
         db.flush()
         return row
+
+    # A free month that was opened with no finished lesson (started, then
+    # cancelled) does not stay. Manager grants and the longer demo welcome do.
+    if current and _is_enrollment_grant(current) and not _parent_has_finished_lesson(db, parent_id):
+        current.status = "expired"
+        db.flush()
 
     if current and current.status == "active" and (not current.ends_at or current.ends_at >= now):
         return current

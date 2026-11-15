@@ -301,7 +301,14 @@ def end_session(
 ):
     if profile.role != AppRole.teacher:
         raise HTTPException(status_code=403, detail="Teachers only")
-    session = db.query(LessonSession).filter(LessonSession.id == session_id).first()
+    # Lock before reading status. Two tabs can both see in_progress, and the
+    # later save would replace hours and notes. The waiter re-reads the row.
+    session = (
+        db.query(LessonSession)
+        .filter(LessonSession.id == session_id)
+        .with_for_update()
+        .first()
+    )
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if session.teacher_id != profile.id:
@@ -341,6 +348,36 @@ def end_session(
     return _session_dict(session, db)
 
 
+def _latest_completed_by_teacher(db: Session) -> dict[UUID, LessonSession]:
+    """Newest finished lesson per teacher, chosen in Postgres.
+
+    The status board polls this every few seconds. DISTINCT ON (teacher_id)
+    with the matching index returns one row each instead of the whole history.
+    """
+    id_rows = (
+        db.query(LessonSession.id)
+        .filter(LessonSession.status == SESSION_STATUS_COMPLETED)
+        .distinct(LessonSession.teacher_id)
+        .order_by(
+            LessonSession.teacher_id,
+            LessonSession.ended_at.desc().nullslast(),
+            LessonSession.created_at.desc(),
+            LessonSession.id.desc(),
+        )
+        .all()
+    )
+    ids = [row[0] for row in id_rows]
+    if not ids:
+        return {}
+    rows = (
+        db.query(LessonSession)
+        .options(joinedload(LessonSession.student))
+        .filter(LessonSession.id.in_(ids))
+        .all()
+    )
+    return {row.teacher_id: row for row in rows}
+
+
 @router.get("/teachers/status")
 def teachers_status(_: Profile = Depends(require_ops_or_manager), db: Session = Depends(get_db)):
     """Live board: every teacher free or in lesson, plus last completed notes."""
@@ -361,17 +398,7 @@ def teachers_status(_: Profile = Depends(require_ops_or_manager), db: Session = 
     )
     active_by_teacher = {row.teacher_id: row for row in active_rows}
 
-    latest_completed: dict[UUID, LessonSession] = {}
-    completed = (
-        db.query(LessonSession)
-        .options(joinedload(LessonSession.student))
-        .filter(LessonSession.status == SESSION_STATUS_COMPLETED)
-        .order_by(LessonSession.ended_at.desc().nullslast(), LessonSession.created_at.desc())
-        .all()
-    )
-    for row in completed:
-        if row.teacher_id not in latest_completed:
-            latest_completed[row.teacher_id] = row
+    latest_completed = _latest_completed_by_teacher(db)
 
     rows = []
     for teacher in teachers:

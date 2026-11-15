@@ -3,13 +3,18 @@ import { Link } from 'react-router-dom'
 import { ENGLISH_FILE_COURSES } from '../data/englishFile'
 import { MATH_GRADES } from '../data/mathRegistry'
 import { PHYSICS_GRADES } from '../data/physicsRegistry'
-import { api } from '../lib/api'
+import { api, isHttpMode, isLocalMode } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { currentMonthValue, formatHours, monthBounds, sessionInMonth } from '../lib/hours'
 import { hoursPath } from '../lib/permissions'
 import { formatNoteTags } from '../lib/lessonNotePresets'
 import { clipText, sortSessionsByEnteredAt } from '../lib/studentDisplay'
 import LessonPresencePanel from '../components/teacher/LessonPresencePanel'
+import LogClassForm from '../components/teacher/LogClassForm'
+
+// Live start/end is the FastAPI server (and the browser demo). The leftover
+// Supabase adapter has no active-lesson methods, so it keeps the old hours form.
+const liveLessons = isHttpMode || isLocalMode
 
 export default function TeacherHome() {
   const {
@@ -76,7 +81,11 @@ export default function TeacherHome() {
       <header className="teacher-dash__hero">
         <div>
           <h1>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</h1>
-          <p className="muted">Start when the lesson begins. End when it finishes and pick what you taught.</p>
+          <p className="muted">
+            {liveLessons
+              ? 'Start when the lesson begins. End when it finishes and pick what you taught.'
+              : 'Log the class after it ends. Hours and notes save with the student.'}
+          </p>
         </div>
         <Link
           className="hours-highlight"
@@ -95,10 +104,18 @@ export default function TeacherHome() {
         <div className="log-class-panel__head">
           <div>
             <h2>Lesson</h2>
-            <p className="muted">Operations sees when you are in a lesson. Notes take a few taps when you finish.</p>
+            <p className="muted">
+              {liveLessons
+                ? 'Operations sees when you are in a lesson. Notes take a few taps when you finish.'
+                : 'Pick the student, course, and hours for the class you just taught.'}
+            </p>
           </div>
         </div>
-        <LessonPresencePanel profile={profile} onSaved={load} />
+        {liveLessons ? (
+          <LessonPresencePanel profile={profile} onSaved={load} />
+        ) : (
+          <LogClassForm profile={profile} onSaved={load} />
+        )}
       </section>
 
       {recent.length ? (

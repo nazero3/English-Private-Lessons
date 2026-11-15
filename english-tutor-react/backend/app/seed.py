@@ -216,6 +216,11 @@ def patch_db_defaults(db: Session) -> None:
         "ON lesson_sessions (teacher_id) WHERE status = 'in_progress'"
     )
     conn.exec_driver_sql(
+        "CREATE INDEX IF NOT EXISTS lesson_sessions_latest_completed_per_teacher "
+        "ON lesson_sessions (teacher_id, ended_at DESC NULLS LAST, created_at DESC) "
+        "WHERE status = 'completed'"
+    )
+    conn.exec_driver_sql(
         "CREATE UNIQUE INDEX IF NOT EXISTS students_user_id_uidx ON students (user_id) WHERE user_id IS NOT NULL"
     )
     conn.exec_driver_sql("ALTER TABLE users ALTER COLUMN email DROP NOT NULL")
@@ -405,11 +410,11 @@ def ensure_demo_parent(db: Session) -> None:
         Subscription(
             parent_id=PARENT_ID,
             status="complimentary",
-            period="enrolled",
+            period="grant",
             price=0,
             starts_at=now,
             ends_at=now + timedelta(days=90),
-            complimentary_reason="عضوية مجانية مع كورس كينز",
+            complimentary_reason="عضوية تجريبية",
         )
     )
     db.add(

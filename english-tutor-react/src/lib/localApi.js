@@ -341,8 +341,16 @@ function syncStudentHistory(db, student, previousName) {
   }
 }
 
+function isLoggedLesson(session) {
+  // Rows saved before live start/end have no status; they were finished classes.
+  if (!session) return false
+  if (session.status == null || session.status === '') return true
+  return session.status === 'completed'
+}
+
 function localPortal(db, student) {
   const sessions = (db.sessions || [])
+    .filter(isLoggedLesson)
     .filter(
       (s) =>
         s.student_id === student.id ||
@@ -1178,7 +1186,7 @@ export const localApi = {
           (s) => s.teacher_id === teacher.id && s.status === 'in_progress',
         )
         const completed = (db.sessions || [])
-          .filter((s) => s.teacher_id === teacher.id && (s.status || 'completed') === 'completed')
+          .filter((s) => s.teacher_id === teacher.id && isLoggedLesson(s))
           .sort(
             (a, b) =>
               new Date(b.ended_at || b.created_at) - new Date(a.ended_at || a.created_at),
@@ -1272,7 +1280,7 @@ export const localApi = {
 
   async listSessions(profile) {
     const db = read()
-    let rows = (db.sessions || []).filter((s) => (s.status || 'completed') === 'completed')
+    let rows = (db.sessions || []).filter(isLoggedLesson)
     if (profile?.role === 'teacher') {
       rows = rows.filter((s) => s.teacher_id === profile.id)
     }
@@ -1306,7 +1314,7 @@ export const localApi = {
     const start = from ? new Date(`${from}T00:00:00`) : null
     const end = to ? new Date(`${to}T23:59:59`) : null
     const inRange = (s) => {
-      if ((s.status || 'completed') !== 'completed') return false
+      if (!isLoggedLesson(s)) return false
       if (s.hours == null || s.hours === '') return false
       const d = new Date(s.session_date || s.created_at)
       if (start && d < start) return false
