@@ -132,6 +132,7 @@ class SessionCreate(BaseModel):
     homework_total: float | None = None
     notes: str = ""
     homework_assigned: str = ""
+    note_tags: list[str] | None = None
     session_date: datetime | None = None
     hours: float | None = Field(default=None, ge=0.5, le=24)
 
@@ -150,12 +151,31 @@ class SessionUpdate(BaseModel):
     homework_total: float | None = None
     notes: str | None = None
     homework_assigned: str | None = None
+    note_tags: list[str] | None = None
     session_date: datetime | None = None
     hours: float | None = Field(default=None, ge=0.5, le=24)
     curriculum: str | None = None
     course_title: str | None = None
     unit_label: str | None = None
     unit_number: int | None = None
+
+
+class SessionStart(BaseModel):
+    student_id: UUID
+
+
+class SessionEnd(BaseModel):
+    model_config = {"extra": "ignore"}
+
+    lesson_id: UUID | None = None
+    curriculum: str | None = None
+    course_title: str | None = None
+    unit_label: str | None = None
+    unit_number: int | None = None
+    note_tags: list[str] = Field(default_factory=list)
+    notes: str = ""
+    homework_assigned: str = ""
+    hours: float | None = Field(default=None, ge=0.5, le=24)
 
 
 class SessionFeedback(BaseModel):
