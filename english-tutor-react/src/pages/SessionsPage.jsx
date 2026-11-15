@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { formatHours, currentMonthValue, monthBounds, sessionInMonth } from '../lib/hours'
 import { useAuth } from '../lib/AuthContext'
 import { homePath, hoursPath } from '../lib/permissions'
+import { formatNoteTags } from '../lib/lessonNotePresets'
 import { fmtDate, sortSessionsByEnteredAt } from '../lib/studentDisplay'
 
 function sessionCourseTitle(s) {
@@ -293,13 +294,6 @@ export default function SessionsPage() {
         </section>
       ) : null}
 
-      {canLogSession && !editingSession ? (
-        <section className="panel log-class-panel">
-          <h2>Log a class</h2>
-          <LogClassForm profile={profile} onSaved={load} />
-        </section>
-      ) : null}
-
       {canLogSession ? (
         <section className="panel">
           <h2>History</h2>
@@ -437,6 +431,13 @@ export default function SessionsPage() {
                     <dd>{sessionUnitLabel(s)}</dd>
                   </div>
                 </dl>
+
+                {Array.isArray(s.note_tags) && s.note_tags.length ? (
+                  <div className="session-card__block">
+                    <span className="muted">Lesson tags</span>
+                    <p>{formatNoteTags(s.note_tags)}</p>
+                  </div>
+                ) : null}
 
                 {s.notes ? (
                   <div className="session-card__block">

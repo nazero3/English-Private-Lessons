@@ -7,8 +7,9 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { currentMonthValue, formatHours, monthBounds, sessionInMonth } from '../lib/hours'
 import { hoursPath } from '../lib/permissions'
+import { formatNoteTags } from '../lib/lessonNotePresets'
 import { clipText, sortSessionsByEnteredAt } from '../lib/studentDisplay'
-import LogClassForm from '../components/teacher/LogClassForm'
+import LessonPresencePanel from '../components/teacher/LessonPresencePanel'
 
 export default function TeacherHome() {
   const {
@@ -75,7 +76,7 @@ export default function TeacherHome() {
       <header className="teacher-dash__hero">
         <div>
           <h1>Hi, {profile?.full_name?.split(' ')[0] || 'there'}</h1>
-          <p className="muted">After class, log the hours. Materials are below when you need them.</p>
+          <p className="muted">Start when the lesson begins. End when it finishes and pick what you taught.</p>
         </div>
         <Link
           className="hours-highlight"
@@ -93,11 +94,11 @@ export default function TeacherHome() {
       <section className="panel log-class-panel">
         <div className="log-class-panel__head">
           <div>
-            <h2>Log a class</h2>
-            <p className="muted">Student, hours, and the unit you taught. That is enough.</p>
+            <h2>Lesson</h2>
+            <p className="muted">Operations sees when you are in a lesson. Notes take a few taps when you finish.</p>
           </div>
         </div>
-        <LogClassForm profile={profile} onSaved={load} />
+        <LessonPresencePanel profile={profile} onSaved={load} />
       </section>
 
       {recent.length ? (
@@ -119,11 +120,13 @@ export default function TeacherHome() {
                 <span className="muted">
                   {new Date(s.session_date || s.created_at).toLocaleDateString()}
                   {s.course?.title ? ` · ${s.course.title}` : ''}
-                  {clipText(s.notes, 80)
-                    ? ` · ${clipText(s.notes, 80)}`
-                    : clipText(s.homework_assigned, 80)
-                      ? ` · HW: ${clipText(s.homework_assigned, 80)}`
-                      : ''}
+                  {formatNoteTags(s.note_tags)
+                    ? ` · ${clipText(formatNoteTags(s.note_tags), 80)}`
+                    : clipText(s.notes, 80)
+                      ? ` · ${clipText(s.notes, 80)}`
+                      : clipText(s.homework_assigned, 80)
+                        ? ` · HW: ${clipText(s.homework_assigned, 80)}`
+                        : ''}
                 </span>
                 <strong>{s.hours != null ? `${formatHours(s.hours)}h` : '—'}</strong>
                 <Link className="table-link" to={`/teacher/sessions?edit=${s.id}`}>

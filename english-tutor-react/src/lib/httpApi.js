@@ -227,6 +227,28 @@ export const httpApi = {
     })
   },
 
+  async startSession(payload) {
+    return request('/api/sessions/start', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async endSession(sessionId, payload) {
+    return request(`/api/sessions/${sessionId}/end`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async getActiveSession() {
+    return request('/api/sessions/active')
+  },
+
+  async teachersStatus() {
+    return request('/api/teachers/status')
+  },
+
   async updateSession(sessionId, payload) {
     return request(`/api/sessions/${sessionId}`, {
       method: 'PATCH',

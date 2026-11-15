@@ -106,6 +106,7 @@ def _session_for_student(
         "homework_total": float(session.homework_total) if session.homework_total is not None else None,
         "notes": session.notes or "",
         "homework_assigned": session.homework_assigned or "",
+        "note_tags": list(session.note_tags or []),
         "session_date": session.session_date.isoformat() if session.session_date else None,
         "created_at": session.created_at.isoformat() if session.created_at else None,
         "homework": homework_items if include_answers else _safe_homework(homework_items),
@@ -177,7 +178,10 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
     sessions = (
         db.query(LessonSession)
         .options(joinedload(LessonSession.student))
-        .filter(LessonSession.student_id == student.id)
+        .filter(
+            LessonSession.student_id == student.id,
+            LessonSession.status == "completed",
+        )
         .order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
         .all()
     )
@@ -188,6 +192,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
             .filter(
                 LessonSession.teacher_id == student.teacher_id,
                 LessonSession.student_name.ilike(student.full_name),
+                LessonSession.status == "completed",
             )
             .order_by(LessonSession.created_at.desc(), LessonSession.id.desc())
             .all()

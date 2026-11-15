@@ -402,6 +402,22 @@ const supabaseApi = {
     throw new Error('Hours summary requires the FastAPI backend')
   },
 
+  async startSession() {
+    throw new Error('Lesson check-in requires the FastAPI backend')
+  },
+
+  async endSession() {
+    throw new Error('Lesson check-out requires the FastAPI backend')
+  },
+
+  async getActiveSession() {
+    throw new Error('Active lesson requires the FastAPI backend')
+  },
+
+  async teachersStatus() {
+    throw new Error('Teacher status requires the FastAPI backend')
+  },
+
   async getSchedules() {
     throw new Error('Weekly schedules require the FastAPI backend')
   },

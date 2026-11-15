@@ -200,6 +200,22 @@ def patch_db_defaults(db: Session) -> None:
     )
     conn.exec_driver_sql("ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS unit_number integer")
     conn.exec_driver_sql(
+        "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'completed'"
+    )
+    conn.exec_driver_sql(
+        "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS started_at timestamptz"
+    )
+    conn.exec_driver_sql(
+        "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS ended_at timestamptz"
+    )
+    conn.exec_driver_sql(
+        "ALTER TABLE lesson_sessions ADD COLUMN IF NOT EXISTS note_tags jsonb NOT NULL DEFAULT '[]'::jsonb"
+    )
+    conn.exec_driver_sql(
+        "CREATE UNIQUE INDEX IF NOT EXISTS lesson_sessions_one_in_progress_per_teacher "
+        "ON lesson_sessions (teacher_id) WHERE status = 'in_progress'"
+    )
+    conn.exec_driver_sql(
         "CREATE UNIQUE INDEX IF NOT EXISTS students_user_id_uidx ON students (user_id) WHERE user_id IS NOT NULL"
     )
     conn.exec_driver_sql("ALTER TABLE users ALTER COLUMN email DROP NOT NULL")

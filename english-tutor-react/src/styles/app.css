@@ -1785,6 +1785,123 @@ button.notify-item:disabled {
   margin-top: 0.45rem;
 }
 
+.note-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.note-chip {
+  appearance: none;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.note-chip:hover {
+  border-color: var(--accent);
+}
+
+.note-chip.is-on {
+  background: var(--highlight);
+  border-color: var(--highlight);
+  font-weight: 600;
+}
+
+.lesson-presence__banner {
+  margin: 0 0 1rem;
+}
+
+.lesson-presence__live {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.lesson-presence__who {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.lesson-presence__badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--line) 35%, #fff);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.lesson-presence__badge.is-on {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: var(--accent-soft, var(--highlight));
+  color: var(--ink);
+}
+
+.teachers-status {
+  margin-bottom: 1.25rem;
+}
+
+.teachers-status__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.teachers-status__head h2 {
+  margin: 0 0 0.2rem;
+}
+
+.teachers-status__head p {
+  margin: 0;
+}
+
+.teachers-status__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.teachers-status__row {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--card) 92%, var(--accent-soft, #f3f5fb));
+}
+
+.teachers-status__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.teachers-status__detail {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+}
+
+.teachers-status__notes {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+}
+
 .recent-class-list {
   list-style: none;
   margin: 0;

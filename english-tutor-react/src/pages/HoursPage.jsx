@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import TeachersStatusBoard from '../components/operations/TeachersStatusBoard'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import {
@@ -315,6 +316,9 @@ export default function HoursPage() {
       </td>
     ) : null
 
+  const sessionsPath =
+    profile?.role === 'manager' ? '/manager/sessions' : '/operations/sessions'
+
   return (
     <div>
       {atHome ? null : (
@@ -322,6 +326,7 @@ export default function HoursPage() {
           <Link to={home}>← Back</Link>
         </p>
       )}
+      {atHome && canSeeTeachers ? <TeachersStatusBoard sessionsPath={sessionsPath} /> : null}
       <header className="teacher-dash__hero">
         <div>
           <h1>{view === 'students' ? 'Hours by student' : 'Teacher hours'}</h1>

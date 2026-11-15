@@ -1053,20 +1053,166 @@ export const localApi = {
         }
       }
 
+      const now = new Date().toISOString()
       const row = {
         id: uid('sess'),
-        created_at: new Date().toISOString(),
-        session_date: payload.session_date || new Date().toISOString(),
+        created_at: now,
+        session_date: payload.session_date || now,
         manager_feedback: '',
         manager_feedback_at: null,
         manager_id: null,
         ...payload,
         student_name: studentName,
         notes: payload.notes || '',
+        note_tags: payload.note_tags || [],
+        status: payload.status || 'completed',
+        started_at: payload.started_at || null,
+        ended_at: payload.ended_at || now,
       }
       db.sessions.unshift(row)
       return row
     })
+  },
+
+  async startSession(payload) {
+    return withDb((db) => {
+      const tid = db.sessionUserId
+      if (!tid) throw new Error('Not signed in')
+      const already = (db.sessions || []).find(
+        (s) => s.teacher_id === tid && s.status === 'in_progress',
+      )
+      if (already) throw new Error('You already have a lesson in progress')
+      const student = (db.students || []).find((s) => s.id === payload.student_id)
+      if (!student) throw new Error('Student not found')
+      if (student.teacher_id && student.teacher_id !== tid) throw new Error('Not your student')
+      const now = new Date().toISOString()
+      const row = {
+        id: uid('sess'),
+        teacher_id: tid,
+        student_id: student.id,
+        student_name: student.full_name,
+        status: 'in_progress',
+        started_at: now,
+        ended_at: null,
+        session_date: now,
+        created_at: now,
+        notes: '',
+        note_tags: [],
+        homework_assigned: '',
+        course_title: '',
+        unit_label: '',
+        hours: null,
+        manager_feedback: '',
+        manager_feedback_at: null,
+        manager_id: null,
+      }
+      db.sessions.unshift(row)
+      return row
+    })
+  },
+
+  async endSession(sessionId, payload) {
+    return withDb((db) => {
+      const session = db.sessions.find((s) => s.id === sessionId)
+      if (!session) throw new Error('Session not found')
+      if (session.status !== 'in_progress') throw new Error('This lesson is not in progress')
+      const now = new Date()
+      const started = new Date(session.started_at || session.created_at || now)
+      const rawMs = now - started
+      const raw = Math.max(0, rawMs) / 3600000
+      let hours = payload.hours != null ? Number(payload.hours) : Math.round(raw * 4) / 4
+      if (hours < 0.5) hours = 0.5
+      if (hours > 24) hours = 24
+      Object.assign(session, {
+        status: 'completed',
+        ended_at: now.toISOString(),
+        hours,
+        note_tags: payload.note_tags || [],
+        notes: payload.notes || '',
+        homework_assigned: payload.homework_assigned || '',
+        lesson_id: payload.lesson_id ?? session.lesson_id,
+        course_title: payload.course_title ?? session.course_title,
+        unit_label: payload.unit_label ?? session.unit_label,
+        unit_number: payload.unit_number ?? session.unit_number,
+        curriculum: payload.curriculum,
+        session_date: session.started_at || session.session_date,
+      })
+      if (payload.lesson_id) {
+        const lesson = db.lessons.find((l) => l.id === payload.lesson_id)
+        if (lesson) {
+          session.lesson = lesson
+          session.course = db.courses.find((c) => c.id === lesson.course_id) || null
+          session.course_title = session.course?.title || session.course_title
+          session.unit_label = lesson.theme
+          session.unit_number = lesson.unit_number
+        }
+      } else if (payload.course_title) {
+        session.lesson_id = null
+        session.course = { title: payload.course_title }
+        session.lesson = {
+          unit_number: payload.unit_number,
+          theme: payload.unit_label || 'Lesson',
+        }
+      }
+      return session
+    })
+  },
+
+  async getActiveSession() {
+    const db = read()
+    const tid = db.sessionUserId
+    if (!tid) return null
+    const active = (db.sessions || []).find((s) => s.teacher_id === tid && s.status === 'in_progress')
+    if (!active) return null
+    return { ...active, student_name: liveSessionName(db, active) }
+  },
+
+  async teachersStatus() {
+    const db = read()
+    const teachers = db.profiles.filter((p) => p.role === 'teacher').sort((a, b) =>
+      String(a.full_name || '').localeCompare(String(b.full_name || '')),
+    )
+    return {
+      teachers: teachers.map((teacher) => {
+        const active = (db.sessions || []).find(
+          (s) => s.teacher_id === teacher.id && s.status === 'in_progress',
+        )
+        const completed = (db.sessions || [])
+          .filter((s) => s.teacher_id === teacher.id && (s.status || 'completed') === 'completed')
+          .sort(
+            (a, b) =>
+              new Date(b.ended_at || b.created_at) - new Date(a.ended_at || a.created_at),
+          )
+        const last = completed[0]
+        return {
+          teacher_id: teacher.id,
+          teacher,
+          status: active ? 'in_lesson' : 'free',
+          active_session: active
+            ? {
+                session_id: active.id,
+                student_id: active.student_id || null,
+                student_name: liveSessionName(db, active),
+                started_at: active.started_at || null,
+              }
+            : null,
+          last_session: last
+            ? {
+                session_id: last.id,
+                student_id: last.student_id || null,
+                student_name: liveSessionName(db, last),
+                ended_at: last.ended_at || null,
+                session_date: last.session_date || null,
+                note_tags: last.note_tags || [],
+                notes: last.notes || '',
+                course_title: last.course_title || '',
+                unit_label: last.unit_label || '',
+                hours: last.hours != null ? Number(last.hours) : null,
+              }
+            : null,
+        }
+      }),
+    }
   },
 
   async addManagerFeedback(profileOrPayload, payload) {
@@ -1126,7 +1272,7 @@ export const localApi = {
 
   async listSessions(profile) {
     const db = read()
-    let rows = db.sessions
+    let rows = (db.sessions || []).filter((s) => (s.status || 'completed') === 'completed')
     if (profile?.role === 'teacher') {
       rows = rows.filter((s) => s.teacher_id === profile.id)
     }
@@ -1160,6 +1306,7 @@ export const localApi = {
     const start = from ? new Date(`${from}T00:00:00`) : null
     const end = to ? new Date(`${to}T23:59:59`) : null
     const inRange = (s) => {
+      if ((s.status || 'completed') !== 'completed') return false
       if (s.hours == null || s.hours === '') return false
       const d = new Date(s.session_date || s.created_at)
       if (start && d < start) return false

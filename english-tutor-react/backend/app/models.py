@@ -107,7 +107,16 @@ class TeacherCourseAssignment(Base):
 
 class LessonSession(Base):
     __tablename__ = "lesson_sessions"
-    __table_args__ = (Index("lesson_sessions_student_idx", "student_id"),)
+    __table_args__ = (
+        Index("lesson_sessions_student_idx", "student_id"),
+        # At most one live lesson per teacher (ops status board).
+        Index(
+            "lesson_sessions_one_in_progress_per_teacher",
+            "teacher_id",
+            unique=True,
+            postgresql_where=text("status = 'in_progress'"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()")
@@ -133,7 +142,13 @@ class LessonSession(Base):
     homework_total: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     homework_assigned: Mapped[str] = mapped_column(Text, default="")
+    # Preset chips chosen at end-of-lesson wrap-up (labels as strings).
+    note_tags: Mapped[list] = mapped_column(JSONB, default=list)
     hours: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
+    # in_progress = teacher pressed Start; completed = logged class (default for legacy rows).
+    status: Mapped[str] = mapped_column(String, default="completed", server_default=text("'completed'"))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     session_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     manager_feedback: Mapped[str] = mapped_column(Text, default="")
     manager_feedback_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
