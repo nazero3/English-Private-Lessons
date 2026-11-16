@@ -175,7 +175,7 @@ function primaryNav(role) {
       { to: '/operations/schedule', label: 'Schedule', icon: <IconGrid /> },
       { to: '/operations/students', label: 'Students', icon: <IconPeople /> },
       { to: '/operations/sessions', label: 'Sessions', icon: <IconCalendar /> },
-      { to: '/operations/families', label: 'Families', icon: <IconPeople /> },
+      { to: '/family', label: 'Families', icon: <IconPeople /> },
     ]
   }
   if (role === 'teacher') {
@@ -307,7 +307,7 @@ export function AppLayout() {
                 <NavLink className={navClass} to="/operations/schedule">
                   Schedule
                 </NavLink>
-                <NavLink className={navClass} to="/operations/families">
+                <NavLink className={navClass} to="/family">
                   Families
                 </NavLink>
                 <NavLink className={navClass} to="/operations" end>

@@ -5,7 +5,7 @@ export const TOKEN_KEY = 'kinz_family_token'
 export const CHILD_KEY = 'kinz_family_child'
 export const KINZ_LOGO = '/kinz/logo.png'
 
-/** Change this later to `/` (or `/family`) when parents get the public app. */
+/** Ops preview of the older family hall. Parents sign in at `/family`. */
 export const KINZ_BASE = '/operations/families'
 
 export function kinzPath(path = '/') {

@@ -79,7 +79,7 @@ export default function ParentsPage() {
           student_id: form.student_id || undefined,
           relationship: form.relationship,
         }),
-      'Parent saved. They sign in with phone + PIN.',
+      'Parent saved. They sign in at /family with this phone and PIN.',
     )
     if (ok) setForm(emptyParent)
   }
@@ -103,7 +103,10 @@ export default function ParentsPage() {
       <header className="teacher-dash__hero">
         <div>
           <h1>Kinz Family</h1>
-          <p className="muted">Phone logins, child links, payments, and public hall opt-in.</p>
+          <p className="muted">
+            Phone and PIN logins. Parents open Kinz Platform at /family and can only view courses,
+            each lesson, and the teacher&apos;s notes.
+          </p>
         </div>
       </header>
       {error ? <p className="error">{error}</p> : null}
@@ -245,13 +248,8 @@ export default function ParentsPage() {
 
           {selected ? (
             <section className="panel">
-              <h2>
-                {selected.full_name}{' '}
-                <span className="badge">{selected.family_code}</span>
-              </h2>
-              <p className="muted">
-                PIN reset from the form below. Family code works without a smartphone.
-              </p>
+              <h2>{selected.full_name}</h2>
+              <p className="muted">They sign in with this mobile number and PIN.</p>
               <p>
                 Children:{' '}
                 {(selected.children || []).map((c) => c.full_name).join(', ') || 'none'}

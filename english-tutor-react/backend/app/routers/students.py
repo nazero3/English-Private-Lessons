@@ -20,6 +20,7 @@ from ..models import (
     User,
     WeeklyScheduleSlot,
 )
+from ..parent_progress import course_rollups, learned_lines
 from ..schemas import StudentCreate, StudentScoreCreate, StudentScoreUpdate, StudentUpdate
 from ..student_identity import session_display_name, sync_student_history
 
@@ -110,6 +111,11 @@ def _session_for_student(
         "session_date": session.session_date.isoformat() if session.session_date else None,
         "created_at": session.created_at.isoformat() if session.created_at else None,
         "homework": homework_items if include_answers else _safe_homework(homework_items),
+        "learned": learned_lines(
+            grammar=lesson.grammar if lesson else "",
+            objectives=lesson.objectives if lesson else None,
+            title=(lesson.theme if lesson else "") or session.unit_label or "",
+        ),
         "lesson": {
             "id": str(lesson.id),
             "course_id": str(lesson.course_id),
@@ -210,6 +216,7 @@ def _portal_payload(student: Student, db: Session, *, include_answers: bool) -> 
         "sessions": session_rows,
         "scores": test_rows,
         "summary": _score_summary(session_rows, test_rows),
+        "courses": course_rollups(session_rows),
     }
 
 

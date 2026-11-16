@@ -7,8 +7,6 @@ export default function LoginPage() {
   const { profile, login } = useAuth()
   const navigate = useNavigate()
   const [phone, setPhone] = useState('')
-  const [familyCode, setFamilyCode] = useState('')
-  const [showCode, setShowCode] = useState(false)
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -26,7 +24,7 @@ export default function LoginPage() {
     setBusy(true)
     setError('')
     try {
-      await login({ phone, family_code: familyCode, pin })
+      await login({ phone, pin })
       navigate(kinzPath('/app'), { replace: true })
     } catch (err) {
       setError(err.message || 'تعذّر الدخول')
@@ -53,6 +51,7 @@ export default function LoginPage() {
               placeholder="0993 000 001"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              required
             />
           </div>
           <div className="field">
@@ -67,24 +66,6 @@ export default function LoginPage() {
               required
             />
           </div>
-          {showCode ? (
-            <div className="field">
-              <label htmlFor="code">رمز العائلة</label>
-              <input
-                id="code"
-                autoComplete="off"
-                placeholder="KFDEMO1"
-                value={familyCode}
-                onChange={(e) => setFamilyCode(e.target.value)}
-              />
-            </div>
-          ) : (
-            <p className="login-more">
-              <button type="button" className="linkish" onClick={() => setShowCode(true)}>
-                الدخول برمز العائلة بدلاً من الرقم
-              </button>
-            </p>
-          )}
           {error ? (
             <p className="error" role="alert">
               {error}

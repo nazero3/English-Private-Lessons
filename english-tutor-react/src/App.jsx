@@ -23,7 +23,7 @@ import PrintPage from './pages/PrintPage'
 import SessionsPage from './pages/SessionsPage'
 import HoursPage from './pages/HoursPage'
 import SchedulePage from './pages/SchedulePage'
-import KinzMount from './kinz/KinzMount'
+import FamilyMount from './family/FamilyMount'
 import {
   BriefPage,
   HomeworkPage,
@@ -43,8 +43,9 @@ import { homePath } from './lib/permissions'
 import './styles/app.css'
 
 function HomeRedirect() {
-  const { profile } = useAuth()
-  if (!profile) return <Navigate to="/login" replace />
+  const { loading, profile } = useAuth()
+  if (loading) return <p className="muted" style={{ padding: '2rem' }}>Loading…</p>
+  if (!profile) return <Navigate to="/family" replace />
   return <Navigate to={homePath(profile.role)} replace />
 }
 
@@ -67,7 +68,10 @@ export default function App() {
       <BrowserRouter>
         <PwaChrome />
         <Routes>
+          <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/family/*" element={<FamilyMount />} />
+          <Route path="/operations/families/*" element={<Navigate to="/family" replace />} />
 
           <Route element={<RequireAuth />}>
             <Route path="/print/lessons/:lessonId/:kind" element={<PrintPage />} />
@@ -84,12 +88,7 @@ export default function App() {
               element={<CoursebookPrintPage source="physics" />}
             />
 
-            <Route element={<RequireAuth role="operations" />}>
-              <Route path="/operations/families/*" element={<KinzMount />} />
-            </Route>
-
             <Route element={<AppLayout />}>
-              <Route path="/" element={<HomeRedirect />} />
 
               <Route element={<RequireAuth role="manager" />}>
                 <Route path="/manager" element={<ManagerHome />} />

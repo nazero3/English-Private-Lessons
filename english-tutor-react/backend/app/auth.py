@@ -38,12 +38,8 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
     return user
 
 
-def authenticate_parent(db: Session, pin: str, phone: str | None = None, family_code: str | None = None) -> User | None:
-    user = None
-    if phone:
-        user = db.query(User).filter(User.phone == phone).first()
-    elif family_code:
-        user = db.query(User).filter(User.family_code == family_code.strip().upper()).first()
+def authenticate_parent(db: Session, pin: str, phone: str) -> User | None:
+    user = db.query(User).filter(User.phone == phone).first()
     if not user or not verify_password(pin, user.password_hash):
         return None
     return user
