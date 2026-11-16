@@ -40,6 +40,7 @@ export function canAccessCoursebookGrade(profile, subjectKey, gradeKey) {
 export function homePath(role) {
   if (role === 'manager') return '/manager'
   if (role === 'student') return '/student'
+  if (role === 'parent') return '/family'
   if (role === 'operations') return '/operations'
   return '/teacher'
 }

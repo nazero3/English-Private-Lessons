@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FALLBACK_LUMINATE } from '../data/luminateFallback'
 import { api } from '../lib/api'
-import { COPY, HOW_IT_WORKS, INSTAGRAM, KINZ_LOGO, POINT_SOURCES, SITE, TIER_LABEL, WHATSAPP, fmtDate, kinzPath } from '../lib/format'
+import { useAuth } from '../lib/auth.jsx'
+import { COPY, HOW_IT_WORKS, INSTAGRAM, KINZ_LOGO, POINT_SOURCES, SITE, TIER_LABEL, WHATSAPP, fmtDate } from '../lib/format'
 import TierLadder from '../components/TierLadder.jsx'
 
 function PersonCard({ person }) {
@@ -19,6 +20,10 @@ function PersonCard({ person }) {
 }
 
 export default function LuminatePage() {
+  const { profile } = useAuth()
+  const signedIn = profile?.role === 'parent'
+  const enterTo = signedIn ? '/family/child' : '/login?as=parent'
+  const enterLabel = signedIn ? 'ابني' : 'دخول'
   const [data, setData] = useState(FALLBACK_LUMINATE)
   const pointHighlights = POINT_SOURCES.slice(0, 4)
   const hall = [...(data.vip_parents || []), ...(data.best_students || []), ...(data.good_parents || [])].slice(0, 3)
@@ -42,8 +47,8 @@ export default function LuminatePage() {
         <div className="topnav-links">
           <a href="#how">كيف تعمل</a>
           <a href="#activities">الأنشطة</a>
-          <Link className="nav-login" to={kinzPath('/login')}>
-            دخول
+          <Link className="nav-login" to={enterTo}>
+            {enterLabel}
           </Link>
         </div>
       </nav>
@@ -59,8 +64,8 @@ export default function LuminatePage() {
             <p className="hero-lead">{COPY.subhead}</p>
             <p className="hero-outcome">{COPY.outcome}</p>
             <div className="hero-actions">
-              <Link className="btn-hero" to={kinzPath('/login')}>
-                تابع ابنك الآن
+              <Link className="btn-hero" to={enterTo}>
+                {signedIn ? 'عرض ابنك' : 'تابع ابنك الآن'}
               </Link>
               <a
                 className="hero-textlink"
@@ -165,8 +170,8 @@ export default function LuminatePage() {
           ))}
         </div>
         <p className="section-cta">
-          <Link className="btn btn-navy" to={kinzPath('/login')}>
-            دخول لمتابعة ابنك
+          <Link className="btn btn-navy" to={enterTo}>
+            {signedIn ? 'عرض ابنك' : 'دخول لمتابعة ابنك'}
           </Link>
         </p>
       </section>

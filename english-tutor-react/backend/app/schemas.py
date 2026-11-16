@@ -221,8 +221,7 @@ class FlagRequest(BaseModel):
 
 
 class ParentLoginRequest(BaseModel):
-    phone: str | None = None
-    family_code: str | None = None
+    phone: str
     pin: str = Field(min_length=4, max_length=8)
 
 

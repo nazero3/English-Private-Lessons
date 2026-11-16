@@ -31,18 +31,13 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/parent-login", response_model=TokenResponse)
 def parent_login(body: ParentLoginRequest, db: Session = Depends(get_db)):
-    phone = None
-    if body.phone:
-        try:
-            phone = normalize_syrian_phone(body.phone)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-    code = (body.family_code or "").strip().upper() or None
-    if not phone and not code:
-        raise HTTPException(status_code=400, detail="أدخل رقم الموبايل أو رمز العائلة")
-    user = authenticate_parent(db, body.pin.strip(), phone=phone, family_code=code)
+    try:
+        phone = normalize_syrian_phone(body.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    user = authenticate_parent(db, body.pin.strip(), phone)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="رقم أو رمز غير صحيح")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="رقم الموبايل أو رمز الدخول غير صحيح")
     profile = db.query(Profile).filter(Profile.id == user.id).first()
     if not profile or profile.role != AppRole.parent:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="حساب الأهل غير موجود")

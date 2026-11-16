@@ -60,10 +60,10 @@ export const api = {
     }
   },
 
-  async parentLogin({ phone, family_code, pin }) {
+  async parentLogin({ phone, pin }) {
     const data = await request('/api/auth/parent-login', {
       method: 'POST',
-      body: JSON.stringify({ phone: phone || null, family_code: family_code || null, pin }),
+      body: JSON.stringify({ phone, pin }),
     })
     setToken(data.access_token)
     return data
