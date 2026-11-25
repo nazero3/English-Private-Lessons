@@ -8,7 +8,8 @@ const emptyParent = { full_name: '', phone: '', pin: '123456', student_id: '', r
 export default function ParentsPage() {
   const { profile } = useAuth()
   const isManager = profile?.role === 'manager'
-  const back = isManager ? '/manager' : '/teacher'
+  const back =
+    profile?.role === 'manager' ? '/manager' : profile?.role === 'operations' ? '/operations' : '/teacher'
   const [tab, setTab] = useState('families')
   const [parents, setParents] = useState([])
   const [students, setStudents] = useState([])

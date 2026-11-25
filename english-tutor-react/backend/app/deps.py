@@ -44,6 +44,13 @@ def require_staff(profile: Profile = Depends(get_current_profile)) -> Profile:
     return profile
 
 
+def require_family_editor(profile: Profile = Depends(get_current_profile)) -> Profile:
+    """Who may create a parent and link students. Operations covers the whole roster."""
+    if profile.role not in (AppRole.manager, AppRole.teacher, AppRole.operations):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+    return profile
+
+
 def require_ops_or_manager(profile: Profile = Depends(get_current_profile)) -> Profile:
     if profile.role not in (AppRole.manager, AppRole.operations):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Operations or manager access required")

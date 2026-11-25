@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..auth import hash_password, profile_to_dict
 from ..database import get_db
-from ..deps import require_parent, require_staff
+from ..deps import require_family_editor, require_parent, require_staff
 from ..family import (
     CREDIT_REFERRAL,
     award_activity_attendance,
@@ -91,7 +91,7 @@ def _get_parent_profile(db: Session, parent_id: UUID) -> Profile:
 
 
 def _staff_can_see_parent(db: Session, staff: Profile, parent: Profile) -> bool:
-    if staff.role == AppRole.manager:
+    if staff.role in (AppRole.manager, AppRole.operations):
         return True
     for student, _link in students_for_parent(db, parent.id):
         if student.teacher_id == staff.id:
@@ -110,7 +110,7 @@ def _whatsapp_pay_url(invoice_id: UUID, phone: str | None, period: str) -> str:
 
 
 @router.get("/parents")
-def list_parents(staff: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+def list_parents(staff: Profile = Depends(require_family_editor), db: Session = Depends(get_db)):
     rows = (
         db.query(Profile)
         .options(joinedload(Profile.user))
@@ -130,7 +130,7 @@ def list_parents(staff: Profile = Depends(require_staff), db: Session = Depends(
 
 
 @router.post("/parents", status_code=201)
-def create_parent(body: ParentCreate, staff: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+def create_parent(body: ParentCreate, staff: Profile = Depends(require_family_editor), db: Session = Depends(get_db)):
     try:
         phone = normalize_syrian_phone(body.phone)
     except ValueError as exc:
@@ -177,7 +177,7 @@ def create_parent(body: ParentCreate, staff: Profile = Depends(require_staff), d
 
 
 @router.get("/parents/{parent_id}")
-def get_parent(parent_id: UUID, staff: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+def get_parent(parent_id: UUID, staff: Profile = Depends(require_family_editor), db: Session = Depends(get_db)):
     profile = _get_parent_profile(db, parent_id)
     if not _staff_can_see_parent(db, staff, profile):
         raise HTTPException(status_code=403, detail="Not your family")
@@ -191,7 +191,7 @@ def get_parent(parent_id: UUID, staff: Profile = Depends(require_staff), db: Ses
 def update_parent(
     parent_id: UUID,
     body: ParentUpdate,
-    staff: Profile = Depends(require_staff),
+    staff: Profile = Depends(require_family_editor),
     db: Session = Depends(get_db),
 ):
     profile = _get_parent_profile(db, parent_id)
@@ -239,7 +239,7 @@ def _db_error_detail(exc: Exception) -> str:
 
 
 @router.delete("/parents/{parent_id}")
-def delete_parent(parent_id: UUID, staff: Profile = Depends(require_staff), db: Session = Depends(get_db)):
+def delete_parent(parent_id: UUID, staff: Profile = Depends(require_family_editor), db: Session = Depends(get_db)):
     profile = _get_parent_profile(db, parent_id)
     if not _staff_can_see_parent(db, staff, profile):
         raise HTTPException(status_code=403, detail="Not your family")
@@ -274,7 +274,7 @@ def delete_parent(parent_id: UUID, staff: Profile = Depends(require_staff), db: 
 def link_student(
     parent_id: UUID,
     body: ParentLinkStudent,
-    staff: Profile = Depends(require_staff),
+    staff: Profile = Depends(require_family_editor),
     db: Session = Depends(get_db),
 ):
     profile = _get_parent_profile(db, parent_id)
@@ -309,7 +309,7 @@ def link_student(
 def unlink_student(
     parent_id: UUID,
     student_id: UUID,
-    staff: Profile = Depends(require_staff),
+    staff: Profile = Depends(require_family_editor),
     db: Session = Depends(get_db),
 ):
     profile = _get_parent_profile(db, parent_id)
@@ -332,7 +332,7 @@ def unlink_student(
 def grant_credits(
     parent_id: UUID,
     body: ParentCreditGrant,
-    staff: Profile = Depends(require_staff),
+    staff: Profile = Depends(require_family_editor),
     db: Session = Depends(get_db),
 ):
     profile = _get_parent_profile(db, parent_id)
