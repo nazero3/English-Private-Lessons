@@ -106,6 +106,7 @@ export default function App() {
                 <Route path="/operations/sessions" element={<SessionsPage />} />
                 <Route path="/operations/students" element={<StudentsPage />} />
                 <Route path="/operations/schedule" element={<SchedulePage />} />
+                <Route path="/operations/parents" element={<ParentsPage />} />
               </Route>
 
               <Route element={<RequireAuth role="student" />}>
